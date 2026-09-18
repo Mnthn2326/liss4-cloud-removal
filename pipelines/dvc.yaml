@@ -31,7 +31,8 @@ stages:
       - data/splits
       - configs/train_baseline.yaml
     outs:
-      - models/baseline
+      - models/baseline/checkpoints:
+          persist: true
     params:
       - configs/train_baseline.yaml:
           - training.epochs
@@ -46,7 +47,7 @@ stages:
     cmd: python -m src.evaluation.evaluate --config configs/train_baseline.yaml
     deps:
       - src/evaluation/evaluate.py
-      - models/baseline
+      - models/baseline/checkpoints
       - data/splits
       - data/processed/rice1
     metrics:
@@ -57,5 +58,5 @@ stages:
     cmd: python -m src.training.register_model --config configs/train_baseline.yaml
     deps:
       - src/evaluation/evaluate.py
-      - models/baseline
+      - models/baseline/checkpoints
       - models/baseline/eval_metrics.json
