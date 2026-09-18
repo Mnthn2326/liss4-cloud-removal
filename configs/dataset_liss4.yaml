@@ -1,0 +1,30 @@
+# STUB — fill in once Bhoonidhi data access is confirmed.
+# Do not assume band count/order until verified against the actual delivered product.
+# See DATA_SPEC.md for notes on expected LISS-IV band structure.
+
+name: liss4
+
+bands:
+  count: 3          # TODO confirm: B2/B3/B4 multispectral, or different product variant
+  names: ["B2_green", "B3_red", "B4_nir"]   # TODO confirm exact bands on receipt
+
+patch_size: 256      # TODO reconsider given ~5.8m native resolution vs RICE's source resolution
+
+paths:
+  raw: "data/raw/liss4"
+  processed: "data/processed/liss4"
+  pairs_manifest: "data/processed/liss4/pairs.csv"
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+
+normalization:
+  method: "minmax"
+  per_band_stats: true   # TODO: satellite bands likely need per-band stats, unlike RICE RGB
+
+auxiliary:
+  sar_available: false   # set true + fill sar_path if pairing with Sentinel-1 in phase 2
+  sar_path: null

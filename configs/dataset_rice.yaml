@@ -1,0 +1,26 @@
+name: rice1
+
+bands:
+  count: 3
+  names: ["R", "G", "B"]
+
+patch_size: 256
+
+paths:
+  raw: "data/raw/rice1"
+  processed: "data/processed/rice1"
+  pairs_manifest: "data/processed/rice1/pairs.csv"
+
+split:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+  seed: 42
+
+normalization:
+  method: "minmax"        # scales to [-1, 1] to match generator's tanh output
+  per_band_stats: false
+
+auxiliary:
+  sar_available: false
+  sar_path: null

@@ -1,0 +1,30 @@
+# Baseline pix2pix training config — see MODEL_SPEC.md for rationale on each default.
+# Override via CLI flag or a copy of this file; do not hardcode these values in code.
+
+model:
+  generator: "unet"
+  discriminator: "patchgan"
+  patch_receptive_field: 70
+
+loss:
+  adversarial: "bce"      # switch to "lsgan" only if training is unstable
+  lambda_l1: 100
+
+optimizer:
+  type: "adam"
+  lr: 0.0002
+  betas: [0.5, 0.999]
+
+training:
+  batch_size: 4            # raise to 8 if Colab GPU memory allows
+  epochs: 80
+  lr_schedule: "constant"  # "linear_decay" once baseline is stable, per MODEL_SPEC.md
+  log_every_n_epochs: 1
+  sample_grid_every_n_epochs: 5
+
+eval:
+  metrics: ["psnr", "ssim"]
+
+mlflow:
+  experiment_name: "cloud-removal-baseline"
+  tracking_uri: "https://dagshub.com/<your-username>/<your-repo>.mlflow"   # TODO fill in

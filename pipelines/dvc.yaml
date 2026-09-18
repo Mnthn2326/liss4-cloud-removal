@@ -1,0 +1,61 @@
+# DVC Pipeline Definition
+# Run the full pipeline with: dvc repro
+# View the DAG with:         dvc dag
+#
+# Each stage's deps/outs/params are defined so DVC only reruns stale stages.
+
+stages:
+  preprocess:
+    cmd: python -m src.data.preprocess --config configs/dataset_rice.yaml
+    deps:
+      - src/data/preprocess.py
+      - configs/dataset_rice.yaml
+    outs:
+      - data/processed/rice1
+      - data/splits
+    params:
+      - configs/dataset_rice.yaml:
+          - patch_size
+          - normalization
+          - split
+
+  train:
+    cmd: python -m src.training.train --config configs/train_baseline.yaml
+    deps:
+      - src/training/train.py
+      - src/models/generator.py
+      - src/models/discriminator.py
+      - src/training/losses.py
+      - src/data/dataset.py
+      - data/processed/rice1
+      - data/splits
+      - configs/train_baseline.yaml
+    outs:
+      - models/baseline
+    params:
+      - configs/train_baseline.yaml:
+          - training.epochs
+          - training.batch_size
+          - optimizer.lr
+          - loss.lambda_l1
+    metrics:
+      - models/baseline/metrics.json:
+          cache: false
+
+  eval:
+    cmd: python -m src.evaluation.evaluate --config configs/train_baseline.yaml
+    deps:
+      - src/evaluation/evaluate.py
+      - models/baseline
+      - data/splits
+      - data/processed/rice1
+    metrics:
+      - models/baseline/eval_metrics.json:
+          cache: false
+
+  register:
+    cmd: python -m src.training.register_model --config configs/train_baseline.yaml
+    deps:
+      - src/evaluation/evaluate.py
+      - models/baseline
+      - models/baseline/eval_metrics.json
