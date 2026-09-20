@@ -134,7 +134,7 @@ def make_sample_grid(
 # Training loop
 # ---------------------------------------------------------------------------
 
-def train(config_path: str) -> None:
+def train(config_path: str, epochs_override: int | None = None) -> None:
     """Run the full training loop."""
     train_cfg = load_config(config_path)
     ds_cfg = load_dataset_config(train_cfg)
@@ -144,7 +144,7 @@ def train(config_path: str) -> None:
     seed_everything(seed)
 
     device = get_device(train_cfg["training"].get("device", "auto"))
-    epochs = train_cfg["training"]["epochs"]
+    epochs = epochs_override if epochs_override is not None else train_cfg["training"]["epochs"]
     batch_size = train_cfg["training"]["batch_size"]
     lr = train_cfg["optimizer"]["lr"]
     betas = tuple(train_cfg["optimizer"]["betas"])
@@ -373,5 +373,9 @@ if __name__ == "__main__":
         "--config", type=str, required=True,
         help="Path to training YAML config",
     )
+    parser.add_argument(
+        "--epochs", type=int, default=None,
+        help="Optional override for number of training epochs",
+    )
     args = parser.parse_args()
-    train(args.config)
+    train(args.config, epochs_override=args.epochs)

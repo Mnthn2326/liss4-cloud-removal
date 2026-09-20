@@ -39,7 +39,7 @@ def smoke_test():
 
     assert cloud.shape == (bands, 256, 256), f"Expected (3,256,256), got {cloud.shape}"
     assert gt.shape == (bands, 256, 256), f"Expected (3,256,256), got {gt.shape}"
-    print("  ✓ Shapes correct: (C, H, W) = (3, 256, 256)")
+    print("  [PASS] Shapes correct: (C, H, W) = (3, 256, 256)")
 
     # ---- 2. Batch ----
     print("\n--- Batching ---")
@@ -64,10 +64,10 @@ def smoke_test():
     print(f"  Output range: [{fake.min():.3f}, {fake.max():.3f}]")
     assert fake.shape == cloud_batch.shape, \
         f"Generator output shape mismatch: {fake.shape} vs {cloud_batch.shape}"
-    print("  ✓ Generator output matches input shape")
+    print("  [PASS] Generator output matches input shape")
 
     # ---- 4. Discriminator ----
-    print("\n--- Discriminator (PatchGAN 70×70) ---")
+    print("\n--- Discriminator (PatchGAN 70x70) ---")
     disc = PatchGANDiscriminator(in_channels=bands * 2).to(device)
     disc.eval()
 
@@ -90,7 +90,7 @@ def smoke_test():
 
     assert pred_real.shape[1] == 1, "Discriminator should output 1 channel"
     assert pred_real.shape == pred_fake.shape, "Real/fake output shapes differ"
-    print(f"  ✓ PatchGAN output: {pred_real.shape} (N, 1, 30, 30)")
+    print(f"  [PASS] PatchGAN output: {pred_real.shape} (N, 1, 30, 30)")
 
     # ---- 5. Losses ----
     print("\n--- Losses ---")
@@ -111,7 +111,7 @@ def smoke_test():
     print(f"  G adversarial: {loss_g_adv.item():.4f}")
     print(f"  G L1:          {loss_g_l1.item():.4f}")
     print(f"  G total:       {loss_g.item():.4f}")
-    print(f"  ✓ All losses are finite")
+    print("  [PASS] All losses are finite")
 
     # ---- 6. Backward pass (1 step) ----
     print("\n--- Backward pass (1 step) ---")
@@ -129,7 +129,7 @@ def smoke_test():
     opt_d.zero_grad()
     loss_d.backward()
     opt_d.step()
-    print(f"  D backward: loss={loss_d.item():.4f} ✓")
+    print(f"  D backward: loss={loss_d.item():.4f} [PASS]")
 
     # G step
     pred_fake = disc(torch.cat([cloud_batch, fake], dim=1))
@@ -137,16 +137,16 @@ def smoke_test():
     opt_g.zero_grad()
     loss_g.backward()
     opt_g.step()
-    print(f"  G backward: loss={loss_g.item():.4f} ✓")
+    print(f"  G backward: loss={loss_g.item():.4f} [PASS]")
 
     # ---- Summary ----
     print("\n" + "=" * 60)
     print("SMOKE TEST PASSED")
     print("=" * 60)
     print(f"\nShape pipeline:")
-    print(f"  Dataset:       .npy (256,256,3) → tensor ({bands},256,256)")
-    print(f"  Generator:     ({batch_size},{bands},256,256) → ({batch_size},{bands},256,256)")
-    print(f"  Discriminator: ({batch_size},{bands*2},256,256) → ({batch_size},1,30,30)")
+    print(f"  Dataset:       .npy (256,256,3) -> tensor ({bands},256,256)")
+    print(f"  Generator:     ({batch_size},{bands},256,256) -> ({batch_size},{bands},256,256)")
+    print(f"  Discriminator: ({batch_size},{bands*2},256,256) -> ({batch_size},1,30,30)")
     print(f"\nModel sizes:")
     print(f"  Generator:     {total_g_params:,} params")
     print(f"  Discriminator: {total_d_params:,} params")
