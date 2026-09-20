@@ -27,4 +27,4 @@ eval:
 
 mlflow:
   experiment_name: "cloud-removal-baseline"
-  tracking_uri: "https://dagshub.com/<your-username>/<your-repo>.mlflow"   # TODO fill in
+  tracking_uri: "https://dagshub.com/Mnthn2326/liss4-cloud-removal.mlflow"
