@@ -6,6 +6,7 @@
 
 stages:
   preprocess:
+    wdir: ..
     cmd: python -m src.data.preprocess --config configs/dataset_rice.yaml
     deps:
       - src/data/preprocess.py
@@ -20,6 +21,7 @@ stages:
           - split
 
   train:
+    wdir: ..
     cmd: python -m src.training.train --config configs/train_baseline.yaml
     deps:
       - src/training/train.py
@@ -44,6 +46,7 @@ stages:
           cache: false
 
   eval:
+    wdir: ..
     cmd: python -m src.evaluation.evaluate --config configs/train_baseline.yaml
     deps:
       - src/evaluation/evaluate.py
@@ -55,6 +58,7 @@ stages:
           cache: false
 
   register:
+    wdir: ..
     cmd: python -m src.training.register_model --config configs/train_baseline.yaml
     deps:
       - src/evaluation/evaluate.py

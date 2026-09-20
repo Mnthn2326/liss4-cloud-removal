@@ -295,12 +295,12 @@ def preprocess(config_path: str) -> None:
     for split_name, split_ids in splits.items():
         split_records = [r for r in all_records if r[0] in set(split_ids)]
         split_csv = splits_dir / f"{dataset_name}_{split_name}.csv"
-        with open(str(split_csv), "w", newline="") as f:
+        with open(str(split_csv), "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["image_id", "patch_name", "cloud_path", "gt_path"])
             for rec in split_records:
                 writer.writerow(rec)
-        print(f"  {split_name}: {len(split_records)} patches → {split_csv}")
+        print(f"  {split_name}: {len(split_records)} patches -> {split_csv}")
 
     print("=== Preprocessing complete ===")
 

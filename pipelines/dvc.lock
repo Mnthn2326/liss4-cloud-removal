@@ -1,0 +1,35 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python -m src.data.preprocess --config configs/dataset_rice.yaml
+    deps:
+    - path: configs/dataset_rice.yaml
+      hash: md5
+      md5: 9d5bfc3974fe3fec8c48738c50452e47
+      size: 418
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: 84c91840450e3902e29b0f8ed47a805d
+      size: 11374
+    params:
+      configs/dataset_rice.yaml:
+        normalization:
+          method: minmax
+          per_band_stats: false
+        patch_size: 256
+        split:
+          train: 0.8
+          val: 0.1
+          test: 0.1
+          seed: 42
+    outs:
+    - path: data/processed/rice1
+      hash: md5
+      md5: 373f2034fb56a9e85e1bc32392e4e180.dir
+      size: 3146426280
+      nfiles: 4001
+    - path: data/splits
+      hash: md5
+      md5: a95c0c2bdd1868fabf8f678857a62a19.dir
+      size: 186360
+      nfiles: 3
