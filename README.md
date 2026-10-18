@@ -5,7 +5,7 @@ LISS4 Cloud Removal is a demonstration MLOps project for removing cloud cover fr
 
 The primary engineering focus of this project is establishing robust MLOps practices: data versioning, reproducibility, experiment tracking, and model lineage.
 
-> **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), **Phase 8: Prototype Packaging and Final Verification**, **Phase 9: Continuous Integration with GitHub Actions**, and **Phase 10: Docker + FastAPI Inference Service** (see [`docs/api.md`](docs/api.md)).
+> **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), **Phase 8: Prototype Packaging and Final Verification**, **Phase 9: Continuous Integration with GitHub Actions**, **Phase 10: Docker + FastAPI Inference Service** (see [`docs/api.md`](docs/api.md)), and **Phase 11: Prometheus + Grafana Monitoring Stack** (see [`docs/monitoring.md`](docs/monitoring.md)).
 
 ## Objectives
 - Establish an end-to-end MLOps pipeline for satellite imagery cloud removal.
@@ -186,6 +186,35 @@ pytest -v
   - Spatial dimensions $H$ and $W$ are between 16 and 512 without ragged rows.
   - All values are finite numbers (no NaN or Inf).
   - Reflectance values are strictly in $[0.0, 1.0]$ (unscaled digital numbers $> 1.0$ or unphysical negative values are explicitly rejected).
+
+## Prometheus + Grafana Monitoring (Phase 11)
+
+A complete observability stack integrates real-time Prometheus metrics collection and Grafana dashboard visualization with the FastAPI inference service. See [`docs/monitoring.md`](docs/monitoring.md) for architecture, PromQL queries, and metric definitions.
+
+### 1. Observability Stack Components
+- **FastAPI Service (`:8000`)**: Instruments `/metrics` tracking throughput, status codes, request latency histograms, and forward-pass inference duration.
+- **Prometheus (`:9090`)**: Scrapes the inference service at 5-second intervals.
+- **Grafana (`:3001`)**: Pre-provisioned dashboard displaying live model readiness, request rates, error distributions, and latency quantiles ($p50$, $p95$). Default credentials: `admin` / `admin`. (Port configurable via `GRAFANA_PORT`).
+
+### 2. Start Stack with Docker Compose
+```bash
+# Launch API, Prometheus, and Grafana
+docker compose up -d --build
+
+# View running services
+docker compose ps
+```
+
+### 3. Run End-to-End Monitoring Demo
+Generate representative traffic (liveness probes, valid inference requests, and 422 edge-case rejections) to populate live metrics:
+```bash
+python scripts/demo_monitoring.py --requests 15
+```
+
+### 4. Stop Stack
+```bash
+docker compose down
+```
 
 ## Scientific Boundaries and Limitations
 

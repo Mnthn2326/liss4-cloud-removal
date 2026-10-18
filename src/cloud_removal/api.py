@@ -11,11 +11,20 @@ from contextlib import asynccontextmanager
 import logging
 import os
 from pathlib import Path
+import time
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 import numpy as np
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from pydantic import BaseModel, Field
 import torch
 
@@ -177,16 +186,63 @@ class ModelManager:
 
 
 # ============================================================================
+# Prometheus Metrics Manager
+# ============================================================================
+
+class MetricsManager:
+    """Manages Prometheus metrics for API requests, latency, and model inference."""
+
+    def __init__(self, registry: Optional[CollectorRegistry] = None) -> None:
+        self.registry = registry if registry is not None else CollectorRegistry(auto_describe=True)
+
+        self.requests_total = Counter(
+            "api_requests_total",
+            "Total count of HTTP requests processed by method, endpoint, and status code",
+            ["method", "endpoint", "status_code"],
+            registry=self.registry,
+        )
+        self.request_duration_seconds = Histogram(
+            "api_request_duration_seconds",
+            "Histogram of request processing duration in seconds",
+            ["method", "endpoint"],
+            buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+            registry=self.registry,
+        )
+        self.model_inference_duration_seconds = Histogram(
+            "model_inference_duration_seconds",
+            "Histogram of model forward pass execution duration in seconds",
+            ["model_type"],
+            buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+            registry=self.registry,
+        )
+        self.model_inference_requests_total = Counter(
+            "model_inference_requests_total",
+            "Total count of model inference invocations by model type and status",
+            ["model_type", "status"],
+            registry=self.registry,
+        )
+        self.model_ready_gauge = Gauge(
+            "model_ready_status",
+            "Gauge indicating whether model is currently loaded and ready for inference (1=ready, 0=not ready)",
+            registry=self.registry,
+        )
+
+
+# ============================================================================
 # FastAPI Application Factory
 # ============================================================================
 
-def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
-    """Create and configure the FastAPI inference application."""
+def create_app(
+    model_manager: Optional[ModelManager] = None,
+    metrics_manager: Optional[MetricsManager] = None,
+) -> FastAPI:
+    """Create and configure the FastAPI inference application with Prometheus metrics."""
 
-    # Initialize manager if not explicitly injected
+    # Initialize manager and metrics if not explicitly injected
     manager = model_manager if model_manager is not None else ModelManager(
         device_str=os.getenv("DEVICE", "cpu")
     )
+    metrics_mgr = metrics_manager if metrics_manager is not None else MetricsManager()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -205,6 +261,7 @@ def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
                         f"Default checkpoint not found at {default_p} and MODEL_CHECKPOINT env var not set."
                     )
                     logger.info("Lifespan: %s", manager.load_error)
+        metrics_mgr.model_ready_gauge.set(1.0 if manager.is_ready and manager.model is not None else 0.0)
         yield
         # Shutdown cleanup
         logger.info("Application shutting down.")
@@ -225,8 +282,38 @@ def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Attach manager to app state for dependency access
+    # Attach managers to app state for dependency access
     app.state.model_manager = manager
+    app.state.metrics_manager = metrics_mgr
+
+    # ------------------------------------------------------------------------
+    # Prometheus HTTP Request Middleware
+    # ------------------------------------------------------------------------
+    @app.middleware("http")
+    async def prometheus_metrics_middleware(request: Request, call_next):
+        if request.url.path == "/metrics":
+            return await call_next(request)
+
+        start_time = time.perf_counter()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        except Exception:
+            status_code = 500
+            raise
+        finally:
+            duration = time.perf_counter() - start_time
+            metrics_mgr.requests_total.labels(
+                method=request.method,
+                endpoint=request.url.path,
+                status_code=str(status_code),
+            ).inc()
+            metrics_mgr.request_duration_seconds.labels(
+                method=request.method,
+                endpoint=request.url.path,
+            ).observe(duration)
 
     # ------------------------------------------------------------------------
     # GET /health
@@ -393,9 +480,16 @@ def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
 
         # 7. Execute inference
         input_tensor = torch.from_numpy(arr)  # shape [3, H, W]
+        t0 = time.perf_counter()
         try:
             output_tensor = await manager.predict(input_tensor)
+            inf_duration = time.perf_counter() - t0
+            m_type = manager.model_config.get("model_type", "UNet")
+            metrics_mgr.model_inference_duration_seconds.labels(model_type=m_type).observe(inf_duration)
+            metrics_mgr.model_inference_requests_total.labels(model_type=m_type, status="success").inc()
         except Exception as exc:
+            m_type = manager.model_config.get("model_type", "UNet")
+            metrics_mgr.model_inference_requests_total.labels(model_type=m_type, status="error").inc()
             logger.error("Inference execution failed: %s", exc, exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -413,6 +507,19 @@ def create_app(model_manager: Optional[ModelManager] = None) -> FastAPI:
             prediction_max=float(pred_arr.max()),
             prediction_mean=float(pred_arr.mean()),
         )
+
+    # ------------------------------------------------------------------------
+    # GET /metrics
+    # ------------------------------------------------------------------------
+    @app.get(
+        "/metrics",
+        summary="Prometheus Metrics",
+        description="Exposes Prometheus metrics for API requests, latency, model inferences, and readiness.",
+    )
+    async def metrics() -> Response:
+        metrics_mgr.model_ready_gauge.set(1.0 if manager.is_ready and manager.model is not None else 0.0)
+        data = generate_latest(metrics_mgr.registry)
+        return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
     return app
 
