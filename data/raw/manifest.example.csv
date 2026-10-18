@@ -1,0 +1,4 @@
+product_id,satellite,sensor,mode,processing_level,acquisition_date,path,row,sub_scene,cloud_cover_percent,sun_elevation_deg,incidence_angle_deg,crs,paired_reference_id,status,rejection_reason,local_dir
+RS2_L4_MX_098_052_15JAN2023_A,Resourcesat-2,LISS-IV,Mx,Orthorectified,2023-01-15T05:30:00Z,98,52,A,24.5,42.1,3.2,EPSG:32643,SYNTHETIC,ACCEPTED,,data/raw/RS2_L4_MX_098_052_15JAN2023_A
+RS2A_L4_MX_098_052_08FEB2023_A,Resourcesat-2A,LISS-IV,Mx,Orthorectified,2023-02-08T05:28:00Z,98,52,A,1.2,46.8,1.5,EPSG:32643,,ACCEPTED,,data/raw/RS2A_L4_MX_098_052_08FEB2023_A
+RS2_L4_MX_102_056_12JUL2023_B,Resourcesat-2,LISS-IV,Mx,Orthorectified,2023-07-12T05:45:00Z,102,56,B,92.0,58.3,18.4,EPSG:32643,,REJECTED,excessive_cloud_gt_80,data/raw/quarantine/RS2_L4_MX_102_056_12JUL2023_B

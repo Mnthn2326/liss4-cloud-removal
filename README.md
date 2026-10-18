@@ -5,7 +5,7 @@ LISS4 Cloud Removal is a demonstration MLOps project for removing cloud cover fr
 
 The primary engineering focus of this project is establishing robust MLOps practices: data versioning, reproducibility, experiment tracking, and model lineage.
 
-> **Note:** This repository is currently in **Phase 1: Environment Setup and Repository Initialization**. The data ingestion, preprocessing, training pipelines, experiment tracking workflows, and model deployment have not yet been implemented.
+> **Note:** This repository has completed **Phase 1: Environment Setup** and **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md)). The data ingestion, preprocessing, training pipelines, experiment tracking workflows, and model deployment have not yet been implemented.
 
 ## Objectives
 - Establish an end-to-end MLOps pipeline for satellite imagery cloud removal.

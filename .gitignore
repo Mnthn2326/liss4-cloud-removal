@@ -48,31 +48,58 @@ credentials.json
 secrets/
 
 # Data & Satellite Imagery
-data/
-data/raw/
-data/processed/
-data/interim/
+# Ignore large binary payloads but preserve DVC pointer files, gitkeeps, and manifests
+/data/raw/*
+!/data/raw/.gitkeep
+!/data/raw/*.dvc
+!/data/raw/.gitignore
+!/data/raw/manifest.*
+!/data/raw/quarantine/
+!/data/raw/quarantine/.gitkeep
+
+/data/interim/*
+!/data/interim/.gitkeep
+!/data/interim/*.dvc
+!/data/interim/.gitignore
+
+/data/processed/*
+!/data/processed/.gitkeep
+!/data/processed/*.dvc
+!/data/processed/.gitignore
+
+# Satellite Imagery and Binary Archives
 *.tif
 *.tiff
 *.hdf
 *.nc
 *.zip
 *.tar.gz
+*.tar
+*.gz
 
-# Models & Artifacts
-models/
-checkpoints/
+# Models & Artifacts (Ignore binary weights, allow DVC pointers and configs)
+/models/*
+!/models/.gitkeep
+!/models/*.dvc
+!/models/.gitignore
+/checkpoints/*
+!/checkpoints/.gitkeep
+!/checkpoints/*.dvc
+!/checkpoints/.gitignore
 *.pt
 *.pth
 *.onnx
 *.pkl
 *.h5
 
-# Experiment Tracking (MLflow / DVC)
+# Experiment Tracking (MLflow)
 mlruns/
 mlartifacts/
+
+# DVC internals (Ignore local cache and local overrides, allow pipeline definitions)
 .dvc/cache/
 .dvc/tmp/
+.dvc/*.local
 
 # OS & Editor Files
 .DS_Store
