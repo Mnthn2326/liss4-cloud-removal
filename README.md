@@ -5,7 +5,7 @@ LISS4 Cloud Removal is a demonstration MLOps project for removing cloud cover fr
 
 The primary engineering focus of this project is establishing robust MLOps practices: data versioning, reproducibility, experiment tracking, and model lineage.
 
-> **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), and **Phase 8: Prototype Packaging and Final Verification**.
+> **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), **Phase 8: Prototype Packaging and Final Verification**, **Phase 9: Continuous Integration with GitHub Actions**, and **Phase 10: Docker + FastAPI Inference Service** (see [`docs/api.md`](docs/api.md)).
 
 ## Objectives
 - Establish an end-to-end MLOps pipeline for satellite imagery cloud removal.
@@ -109,7 +109,83 @@ Command-line options:
 python demo.py --index 0 --output reports/figures/demo_comparison.png --device auto
 ```
 
-The demonstration evaluates physical surface reflectance in $[0.0, 1.0]$ (reporting MAE and PSNR improvements) and saves a 3-panel comparison figure (`[Cloudy Input | U-Net Prediction | Clear Ground Truth]`) rendered with a shared 2%–98% percentile contrast stretch.
+
+## Docker + FastAPI Inference Service (Phase 10)
+
+A containerized, production-oriented FastAPI inference service exposes the trained compact U-Net model via deterministic CPU execution. See [`docs/api.md`](docs/api.md) for full endpoint specifications, request/response schemas, and architectural boundaries.
+
+### 1. Prerequisites & Dependencies
+```bash
+pip install -e ".[dev]"
+```
+
+### 2. Run the Service Locally
+```bash
+# Launch FastAPI service with default compact checkpoint
+uvicorn cloud_removal.api:app --host 0.0.0.0 --port 8000
+
+# Or configure an explicit checkpoint path via MODEL_CHECKPOINT:
+# (PowerShell)
+$env:MODEL_CHECKPOINT="checkpoints/compact/best_compact_unet.pt"
+uvicorn cloud_removal.api:app --host 0.0.0.0 --port 8000
+```
+Interactive OpenAPI documentation is available at `http://localhost:8000/docs` and `http://localhost:8000/openapi.json`.
+
+### 3. Build & Run with Docker
+Model checkpoints are never baked into the container image. Inject trained weights dynamically via a read-only volume mount:
+```bash
+# Build production image
+docker build -t liss4-cloud-removal-api:latest .
+
+# Run container with read-only checkpoint mount
+docker run -d \
+  --name cloud-removal-service \
+  -p 8000:8000 \
+  -v ${PWD}/checkpoints/compact/best_compact_unet.pt:/models/checkpoint.pt:ro \
+  -e MODEL_CHECKPOINT=/models/checkpoint.pt \
+  liss4-cloud-removal-api:latest
+```
+
+### 4. Example API Requests
+
+- **Liveness probe (`/health`)**:
+  ```bash
+  curl -s http://localhost:8000/health
+  # {"status":"healthy","service":"liss4-cloud-removal-api","version":"0.1.0","model_loaded":true,"ready":true}
+  ```
+
+- **Readiness probe (`/ready`)**:
+  ```bash
+  curl -s http://localhost:8000/ready
+  # {"ready":true,"status":"ready","model_type":"UNet","device":"cpu","checkpoint":"...","in_channels":3,"out_channels":3}
+  ```
+
+- **Inference request (`/predict`)**:
+  Accepts a 3D nested array `[3, H, W]` ($16 \le H, W \le 512$) of Sentinel-2 RGB surface reflectance values strictly bounded in $[0.0, 1.0]$.
+  ```bash
+  # Generate a 3x32x32 synthetic patch and send inference request:
+  python -c "import json, numpy as np; json.dump({'image': np.random.uniform(0.1, 0.4, (3, 32, 32)).tolist()}, open('sample.json', 'w'))"
+  curl -s -X POST http://localhost:8000/predict \
+    -H "Content-Type: application/json" \
+    -d @sample.json
+  ```
+
+### 5. Running API Tests
+```bash
+# Run unit and integration tests for API service (no real checkpoint required)
+pytest tests/test_api.py -v
+
+# Run full project test suite (81 tests)
+pytest -v
+```
+
+### 6. Troubleshooting
+- **`503 Service Unavailable` on `/ready` or `/predict`**: The model checkpoint is not loaded. Ensure `MODEL_CHECKPOINT` points to an existing `.pt` file, or that the default checkpoint exists at `checkpoints/compact/best_compact_unet.pt`.
+- **`422 Unprocessable Content` on `/predict`**: Input validation failed. Verify that:
+  - The array is 3D with exactly 3 channels (RGB: [B04, B03, B02]).
+  - Spatial dimensions $H$ and $W$ are between 16 and 512 without ragged rows.
+  - All values are finite numbers (no NaN or Inf).
+  - Reflectance values are strictly in $[0.0, 1.0]$ (unscaled digital numbers $> 1.0$ or unphysical negative values are explicitly rejected).
 
 ## Scientific Boundaries and Limitations
 

@@ -1,0 +1,55 @@
+# Git and Version Control
+.git/
+.gitignore
+.github/
+
+# Virtual Environments and Python Cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# DVC and Local Data Versioning
+.dvc/
+.dvcignore
+.dvc/*.local
+
+# Datasets and Large Imagery
+data/
+*.tif
+*.tiff
+*.tar.gz
+*.zip
+
+# Checkpoints and Trained Models (injected via bind mount at runtime)
+checkpoints/
+*.pt
+*.pth
+*.onnx
+
+# MLflow Experiment Tracking
+mlruns/
+mlartifacts/
+*.db
+*.sqlite
+
+# Reports, Scratch, and Temporary Files
+scratch/
+reports/
+notebooks/
+
+# Testing and Coverage Artifacts
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment Variables and Local Secrets
+.env
+.env.*
+*.pem
+*.key

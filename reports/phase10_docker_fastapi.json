@@ -1,0 +1,82 @@
+{
+  "phase": "10",
+  "title": "Docker + FastAPI Inference Service",
+  "status": "DOCKER_VERIFIED_AND_PASSING",
+  "framework": "FastAPI",
+  "asgi_server": "uvicorn",
+  "endpoints": {
+    "/health": {
+      "method": "GET",
+      "description": "Liveness probe reporting process status and model load state",
+      "status_codes": [200],
+      "verified_in_container": true
+    },
+    "/ready": {
+      "method": "GET",
+      "description": "Readiness probe reporting inference availability",
+      "status_codes": [200, 503],
+      "verified_in_container": true
+    },
+    "/predict": {
+      "method": "POST",
+      "description": "Deterministic CPU cloud removal inference on single 3D patch [3, H, W]",
+      "status_codes": [200, 422, 503, 500],
+      "verified_in_container": true
+    },
+    "/docs": {
+      "method": "GET",
+      "description": "Interactive OpenAPI Swagger UI",
+      "status_codes": [200]
+    },
+    "/openapi.json": {
+      "method": "GET",
+      "description": "Machine-readable OpenAPI 3.1.0 specification",
+      "status_codes": [200]
+    }
+  },
+  "model": {
+    "architecture": "UNet",
+    "checkpoint": "checkpoints/compact/best_compact_unet.pt",
+    "parameters": 1942611,
+    "input_channels": 3,
+    "output_channels": 3,
+    "device": "cpu",
+    "expected_input_range": [0.0, 1.0],
+    "output_range": [0.0, 1.0],
+    "min_spatial_dim": 16,
+    "max_spatial_dim": 512
+  },
+  "docker_verification": {
+    "image_tag": "liss4-cloud-removal-api:phase10",
+    "base_image": "python:3.11-slim",
+    "system_packages": ["libexpat1"],
+    "content_size_mb": 598,
+    "user": "appuser (UID 1000)",
+    "exposed_port": 8000,
+    "build_status": "PASS",
+    "container_startup_status": "PASS",
+    "health_endpoint_status": "PASS",
+    "ready_endpoint_status": "PASS",
+    "checkpoint_inference_status": "PASS",
+    "input_validation_guardrails_status": "PASS",
+    "regression_tests_status": "PASS",
+    "cleanup_status": "PASS",
+    "mount_type": "bind (readonly)",
+    "env_variable": "MODEL_CHECKPOINT=/models/checkpoint.pt"
+  },
+  "test_metrics": {
+    "total_tests": 81,
+    "passed_tests": 81,
+    "failed_tests": 0,
+    "skipped_tests": 0,
+    "existing_tests_passed": 56,
+    "new_api_tests_passed": 25,
+    "execution_time_seconds": 31.70
+  },
+  "scientific_boundary": {
+    "training_domain": "Sentinel-2 SEN12MS-CR (RGB 10m)",
+    "target_domain": "Resourcesat-2A LISS-IV (Green/Red/NIR 5m)",
+    "cross_sensor_validated": false,
+    "reason": "Differences in spatial resolution, spectral bandpass, and omitted solar irradiance calibration constants."
+  }
+}
