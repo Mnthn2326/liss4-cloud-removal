@@ -1,0 +1,108 @@
+{
+  "phase": "9",
+  "task": "GitHub Actions Continuous Integration",
+  "status": "CONFIGURED_AND_LOCALLY_VERIFIED",
+  "timestamp_utc": "2026-10-18T19:59:00Z",
+  "project": "liss4-cloud-removal",
+  "workflow": {
+    "file": ".github/workflows/ci.yml",
+    "name": "CI",
+    "triggers": ["push", "pull_request"],
+    "python_version": "3.11",
+    "runner_os": "ubuntu-latest",
+    "caching": {
+      "type": "pip",
+      "managed_by": "actions/setup-python@v5",
+      "dependency_paths": ["pyproject.toml", "requirements.txt"]
+    },
+    "installation_steps": [
+      "python -m pip install --upgrade pip",
+      "pip install torch --index-url https://download.pytorch.org/whl/cpu",
+      "pip install -e \".[dev]\""
+    ],
+    "test_command": "python -m pytest tests/ -v --tb=short"
+  },
+  "test_suite_audit": {
+    "total_tests": 56,
+    "self_contained_tests": 53,
+    "artifact_dependent_tests": 3,
+    "artifact_dependent_breakdown": [
+      {
+        "test": "tests/test_sen12mscr.py::test_real_acquired_dataset_if_present",
+        "dependency": "data/raw/sen12mscr/manifest.json",
+        "guard": "pytest.skip if manifest absent"
+      },
+      {
+        "test": "tests/test_unet.py::test_evaluate_full_split_mock",
+        "dependency": "checkpoints/best_unet.pt",
+        "guard": "pytest.skip if checkpoint absent"
+      },
+      {
+        "test": "tests/test_unet.py::test_run_demo",
+        "dependency": "checkpoints/compact/best_compact_unet.pt and data/raw/sen12mscr/manifest.json",
+        "guard": "pytest.skip if checkpoint or manifest absent"
+      }
+    ],
+    "quality_gates_added": [
+      {
+        "name": "test_unet_output_quality_gate",
+        "location": "tests/test_unet.py",
+        "verifications": [
+          "Exact shape preservation for base_channels in [8, 16, 32]",
+          "Strict finiteness (no NaN or Inf)",
+          "Strict value range bounds [0.0, 1.0]"
+        ]
+      },
+      {
+        "name": "strengthened_finiteness_assertions",
+        "location": "tests/test_unet.py",
+        "tests_updated": [
+          "test_unet_forward_shape_preservation",
+          "test_unet_256_resolution",
+          "test_unet_output_bounds_with_sigmoid",
+          "test_infer_load_and_predict"
+        ]
+      }
+    ]
+  },
+  "local_verification_results": {
+    "full_suite": {
+      "command": ".venv\\Scripts\\pytest -v",
+      "total": 56,
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 27.94
+    },
+    "self_contained_subset": {
+      "command": ".venv\\Scripts\\pytest -v -k \"not (real_acquired or evaluate_full or run_demo)\"",
+      "total": 56,
+      "passed": 53,
+      "deselected": 3,
+      "failed": 0,
+      "duration_seconds": 7.79
+    }
+  },
+  "remote_execution_status": {
+    "remote_run_executed": false,
+    "reason": "Strict constraints prohibit unprompted Git commits or pushes in this phase.",
+    "distinction": "Local execution PASS (56/56); CI workflow CONFIGURED; Remote execution PENDING user push"
+  },
+  "steps_to_trigger_remote_run": [
+    "git add .github/workflows/ci.yml tests/test_manifest.py tests/test_unet.py reports/phase9_ci_verification.*",
+    "git commit -m \"ci: add GitHub Actions workflow and strengthen model quality gates\"",
+    "git push origin master (or create and push a feature branch / pull request)"
+  ],
+  "modified_files": [
+    ".github/workflows/ci.yml",
+    "tests/test_manifest.py",
+    "tests/test_unet.py",
+    "reports/phase9_ci_verification.json",
+    "reports/phase9_ci_verification.md"
+  ],
+  "remaining_limitations": [
+    "Remote CI execution cannot occur until user commits and pushes to GitHub.",
+    "CI operates purely on synthetic fixtures and unit mocks; remote DVC data pulling is deliberately excluded to preserve fast, low-cost CI.",
+    "Full end-to-end demo execution (test_run_demo) requires the compact checkpoint and SEN12MS-CR dataset, which are skipped in CI unless uploaded as job artifacts."
+  ]
+}

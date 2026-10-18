@@ -17,5 +17,10 @@ rasterio>=1.4.0
 # Numerical Computing
 numpy>=2.0.0
 
+# Visualization and Configuration
+pyyaml>=6.0.0
+matplotlib>=3.7.0
+pillow>=9.0.0
+
 # Testing Framework
 pytest>=9.0.0

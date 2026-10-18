@@ -1,0 +1,67 @@
+{
+  "phase": "Phase 7.7",
+  "status": "blocked",
+  "decision": "NO-GO",
+  "summary": "Creating a scientifically defensible synthetic cloud-removal benchmark for LISS-IV using the existing repository is currently BLOCKED. The repository contains only a single cloudy monsoon acquisition (no cloud-free LISS-IV reference scene exists), product metadata lacks solar exo-atmospheric irradiance (ESUN) required for physical reflectance calibration, and the existing U-Net baseline cannot ingest LISS-IV's Green-Red-NIR band combination without a Blue channel.",
+  "calibration_assessment": {
+    "documented_parameters": {
+      "quantization_bits": 10,
+      "storage_dtype": "uint16",
+      "dn_range": [0, 1023],
+      "b2_lmin": 0.0,
+      "b2_lmax": 52.0,
+      "b3_lmin": 0.0,
+      "b3_lmax": 47.0,
+      "b4_lmin": 0.0,
+      "b4_lmax": 31.5,
+      "sun_elevation_deg": 70.026528,
+      "sun_azimuth_deg": 74.758853,
+      "date_of_pass": "03-JUN-2026",
+      "scene_center_time_utc": "05:41:22.998276"
+    },
+    "missing_parameters": {
+      "esun_solar_irradiance": "Absent from metadata (BAND_META.txt and .meta contain no ESUN values)",
+      "radiance_units": "Units for Lmin/Lmax (e.g. mW/(cm^2*sr*um) vs W/(m^2*sr*um)) are not declared in deliverable text",
+      "atmospheric_correction_coefficients": "No aerosol optical thickness, water vapor, or atmospheric profile parameters provided"
+    },
+    "sufficiency_verdict": "INSUFFICIENT for defensible surface reflectance conversion without external unverified assumptions."
+  },
+  "reference_imagery_assessment": {
+    "available_liss4_scenes": [
+      "RAF03JUN2026049233009500060SSANSTUC00GTDA"
+    ],
+    "clean_reference_available": false,
+    "current_scene_cloud_status": "Monsoon acquisition with extensive cloud cover and saturated core pixels (DN = 1023 in all bands). Cannot be treated as clean ground truth."
+  },
+  "synthetic_utilities_assessment": {
+    "tool_inspected": "src/cloud_removal/synthetic_clouds.py",
+    "mask_generation": "Multi-scale Gaussian stochastic noise field (coarse + fine turbulence) providing continuous opacity alpha in [0.0, 1.0]. Algorithmically sound.",
+    "blending_formulation": "Standard simplified radiative transfer: I_cloudy = (1 - alpha) * I_clear + alpha * C. Supports 10-bit integer DN ranges.",
+    "tool_suitability": "SUITABLE algorithmically for synthetic cloud overlay, but physically constrained by the lack of a clear LISS-IV base image and uncalibrated radiometry."
+  },
+  "blockers": [
+    {
+      "id": "BLOCKER-1",
+      "title": "Absence of Clear LISS-IV Reference Scene",
+      "description": "The repository contains exactly one LISS-IV scene, which is heavily cloudy. A synthetic benchmark requires a genuinely cloud-free scene (<= 1% cloud) to serve as Y_clear ground truth. Fabricating ground truth from cloudy imagery is scientifically invalid.",
+      "evidence_needed": "Acquisition of an authentic, verified cloud-free LISS-IV scene from Bhoonidhi."
+    },
+    {
+      "id": "BLOCKER-2",
+      "title": "Missing Solar Spectral Irradiance (ESUN) in Metadata",
+      "description": "BAND_META.txt provides radiance limits (Lmin, Lmax) but omits mean solar exo-atmospheric spectral irradiance (ESUN). Converting TOA Radiance to TOA Reflectance is mathematically impossible without external, sensor-specific calibration tables.",
+      "evidence_needed": "Authoritative NRSC/ISRO published ESUN calibration constants for Resourcesat-2A LISS-IV Bands 2, 3, 4."
+    },
+    {
+      "id": "BLOCKER-3",
+      "title": "Spectral and Architecture Incompatibility with Existing Model",
+      "description": "The existing compact U-Net baseline requires Red-Green-Blue inputs. LISS-IV provides Green-Red-NIR. A synthetic LISS-IV benchmark cannot be evaluated against the current checkpoint without training a dedicated False-Color Composite (FCC) model.",
+      "evidence_needed": "Training an FCC-specific (Green, Red, NIR) baseline model on matching SEN12MS-CR bands (B03, B04, B08)."
+    }
+  ],
+  "accuracy_claims": "No accuracy claims (MAE, PSNR, SSIM, or benchmark performance) are made on LISS-IV. No synthetic benchmark dataset was generated.",
+  "artifacts_created": [
+    "reports/phase7_7_benchmark_feasibility.json",
+    "reports/phase7_7_benchmark_feasibility.md"
+  ]
+}

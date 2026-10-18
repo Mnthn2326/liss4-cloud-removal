@@ -1,0 +1,76 @@
+{
+  "phase": "7.2",
+  "task": "Minimal Working Cloud-Removal Prototype with Compact U-Net",
+  "execution_timestamp_utc": "2026-10-18T18:15:00Z",
+  "environment": {
+    "host_os": "Windows 11 (AMD64)",
+    "python_version": "3.11.9",
+    "pytorch_version": "2.14.1+cpu",
+    "device_used": "cpu",
+    "cuda_available": false
+  },
+  "model": {
+    "model_type": "UNet",
+    "in_channels": 3,
+    "out_channels": 3,
+    "base_channels": 16,
+    "bilinear": false,
+    "use_sigmoid": true,
+    "prior_reflectance": 0.107,
+    "trainable_parameters": 1942611
+  },
+  "dataset": {
+    "dataset_name": "SEN12MS-CR",
+    "roi": "102",
+    "season": "winter",
+    "total_pairs": 719,
+    "train_samples": 575,
+    "val_samples": 144,
+    "patch_size": [256, 256],
+    "channels": ["B04", "B03", "B02"],
+    "split_overlap": 0
+  },
+  "training": {
+    "epochs": 5,
+    "batch_size": 8,
+    "learning_rate": 0.0002,
+    "optimizer": "adamw",
+    "loss": "L1",
+    "total_training_duration_sec": 526.94,
+    "best_epoch": 5,
+    "best_val_mae": 0.006670560452716324,
+    "best_val_psnr": 38.94
+  },
+  "mlflow": {
+    "experiment_name": "sen12mscr-compact-unet",
+    "experiment_id": "680641293232340760",
+    "run_id": "0f2e8b45bb024ec5bd6187d1d2a9d8aa"
+  },
+  "full_validation_fair_comparison": {
+    "sample_count": 144,
+    "baseline_cloudy_input": {
+      "macro_mae": 0.07535649460567306,
+      "macro_psnr_db": 25.9499226266126,
+      "micro_mae": 0.07535649418585105,
+      "micro_psnr_db": 18.92344165039906
+    },
+    "compact_unet_prediction": {
+      "macro_mae": 0.006670560452716324,
+      "macro_psnr_db": 40.00141229431888,
+      "micro_mae": 0.006670560456566616,
+      "micro_psnr_db": 38.57140852260188
+    },
+    "mae_improvement_factor": 11.296877,
+    "psnr_improvement_db": 14.051489
+  },
+  "artifacts": {
+    "checkpoint": "checkpoints/compact/best_compact_unet.pt",
+    "config": "configs/train_compact_unet.yaml",
+    "figures": [
+      "reports/figures/compact/inference_val_0_p101.png",
+      "reports/figures/compact/inference_val_1_p105.png",
+      "reports/figures/compact/inference_val_2_p110.png",
+      "reports/figures/compact/inference_val_3_p115.png"
+    ]
+  }
+}

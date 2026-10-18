@@ -1,0 +1,165 @@
+{
+  "phase": "8",
+  "task": "Prototype Packaging and Final Verification",
+  "outcome": "PASS_WITH_LIMITATIONS",
+  "timestamp_utc": "2026-10-18T19:42:00Z",
+  "project": "liss4-cloud-removal",
+  "environment": {
+    "host_os": "Windows 11 (AMD64)",
+    "python_version": "3.11.9",
+    "pytorch_version": "2.14.1+cpu",
+    "dvc_version": "3.67.1",
+    "mlflow_version": "3.17.1",
+    "pytest_version": "9.1.1"
+  },
+  "checkpoint_verification": {
+    "primary_checkpoint": {
+      "path": "checkpoints/compact/best_compact_unet.pt",
+      "size_bytes": 23421227,
+      "sha256": "d83d229030957b420cb2ca74b871635a74629dcc348487b45851c78af76f8cdc",
+      "model_type": "UNet",
+      "base_channels": 16,
+      "trainable_parameters": 1942611,
+      "epoch": 5,
+      "val_loss": 0.00667056050668988,
+      "val_mae": 0.00667056050668988,
+      "val_psnr_db": 38.94446034464784,
+      "prior_reflectance_init": 0.107,
+      "status": "VERIFIED_EXACT_MATCH"
+    },
+    "legacy_checkpoint": {
+      "path": "checkpoints/best_unet.pt",
+      "size_bytes": 93276427,
+      "sha256": "a21775006d4179850950a3e64393cefdb24d62802b07685ed96400a96ab9697c",
+      "model_type": "UNet",
+      "base_channels": 32,
+      "trainable_parameters": 7763107,
+      "epoch": 1,
+      "val_mae": 0.0264440281316638,
+      "val_psnr_db": 30.586384865144005,
+      "status": "VERIFIED_UNTOUCHED"
+    }
+  },
+  "mlflow_lineage": {
+    "experiment_id": "680641293232340760",
+    "experiment_name": "sen12mscr-compact-unet",
+    "run_id": "0f2e8b45bb024ec5bd6187d1d2a9d8aa",
+    "run_name": "capable-auk-759",
+    "recorded_device": "cpu",
+    "parameters": {
+      "model_type": "UNet",
+      "base_channels": "16",
+      "in_channels": "3",
+      "out_channels": "3",
+      "epochs": "5",
+      "batch_size": "8",
+      "learning_rate": "0.0002",
+      "optimizer": "adamw",
+      "loss_function": "l1",
+      "trainable_parameters": "1942611",
+      "num_train_samples": "575",
+      "num_val_samples": "144",
+      "seed": "42"
+    },
+    "metrics": {
+      "val_mae": 0.00667056050668988,
+      "val_psnr": 38.94446034464784,
+      "val_loss": 0.00667056050668988
+    }
+  },
+  "demo_workflow_verification": {
+    "command": "python demo.py",
+    "exit_code": 0,
+    "evaluated_patch": "p101",
+    "split": "val",
+    "sample_index": 0,
+    "input_shape": [3, 256, 256],
+    "output_shape": [3, 256, 256],
+    "metrics": {
+      "baseline_input_mae": 0.09086,
+      "baseline_input_psnr_db": 17.68,
+      "unet_prediction_mae": 0.00586,
+      "unet_prediction_psnr_db": 41.59,
+      "improvement_delta_mae": 0.08500,
+      "improvement_delta_psnr_db": 23.91
+    },
+    "generated_figure": {
+      "path": "reports/figures/demo_comparison.png",
+      "size_bytes": 1377249,
+      "sha256": "5d06f503f886bf369032cd7a8c25e6535925e37be59975842bf44d0ba8adb2fb",
+      "display_stretch": "shared_2_to_98_percentile"
+    },
+    "isolated_extraction_run": {
+      "target_dir": "scratch/test_extract_archive",
+      "exit_code": 0,
+      "figure_sha256_match": true
+    }
+  },
+  "source_archive_audit": {
+    "archive_path": "project_source.zip",
+    "size_bytes": 94819,
+    "sha256": "a3743ca6d82aa171a61518fb4231eadbfca9ff1bb2136d43250bdef8cf8e8100",
+    "total_files": 43,
+    "preserved_pre_phase8_archive": {
+      "path": "scratch/project_source_preserved_pre_phase8.zip",
+      "size_bytes": 92342,
+      "sha256": "7c4ba57ed6f8705f6df902dec1bd58310bd919d84c97ddf9d7d7fa8baae79ba8"
+    },
+    "defect_identified_and_fixed": {
+      "description": "Root demo entrypoint (demo.py) and requirements.txt were missing from original source archive.",
+      "resolution": "Preserved original archive, updated scratch/package_source.py, repackaged project_source.zip with demo.py and requirements.txt, verified clean extraction."
+    }
+  },
+  "test_suite_status": {
+    "total_tests": 55,
+    "passed": 55,
+    "failed": 0,
+    "duration_sec": 30.31,
+    "coverage_areas": [
+      "raster_inspection",
+      "manifest_integrity",
+      "metrics_correctness",
+      "patch_extraction_and_splitting",
+      "geospatial_preprocessing",
+      "sen12mscr_loader_and_pairing",
+      "synthetic_clouds",
+      "unet_architecture_and_shapes",
+      "gradient_flow_and_overfitting",
+      "compact_unet_and_checkpoint_io",
+      "shared_percentile_stretch",
+      "demo_workflow_end_to_end"
+    ]
+  },
+  "data_and_versioning_status": {
+    "dvc_status": "Data and pipelines are up to date",
+    "raw_liss4_product_unchanged": true,
+    "sen12mscr_manifest_unchanged": true,
+    "git_status": "Clean of untracked repository corruption; packaging modifications documented"
+  },
+  "modified_files": [
+    "requirements.txt",
+    "README.md",
+    "docs/training_unet.md",
+    "scratch/package_source.py",
+    "project_source.zip",
+    "reports/phase8_final_verification.json",
+    "reports/phase8_final_verification.md"
+  ],
+  "documented_limitations": [
+    {
+      "limitation_id": "LIM-1",
+      "title": "Optical Cloud Penetration Boundary",
+      "detail": "Optical sensor wavelengths (RGB) cannot penetrate optically thick opaque clouds. The model performs contextual inpainting based on visible neighboring terrain and statistical priors, not true physical surface observation."
+    },
+    {
+      "limitation_id": "LIM-2",
+      "title": "Internal Holdout Evaluation Scope",
+      "detail": "The 144 validation patches are an internal holdout split from official SEN12MS-CR training ROI 102 (Winter). Benchmark test ROIs were not acquired or evaluated; global domain generalization remains unmeasured."
+    },
+    {
+      "limitation_id": "LIM-3",
+      "title": "Cross-Sensor Non-Transferability (LISS-IV)",
+      "detail": "Evaluating the Sentinel-2 RGB model on Resourcesat-2A LISS-IV is blocked due to 5m vs 10m spatial resolution mismatch, Green-Red-NIR vs RGB spectral mismatch (no blue band), and missing ESUN solar irradiance calibration metadata in official LISS-IV product deliverables."
+    }
+  ]
+}

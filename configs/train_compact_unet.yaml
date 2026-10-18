@@ -1,0 +1,39 @@
+# Training Configuration for Compact SEN12MS-CR U-Net Baseline (base_channels: 16, ~1.94M params)
+seed: 42
+manifest_path: "data/raw/sen12mscr/manifest.json"
+checkpoint_dir: "checkpoints/compact"
+checkpoint_name: "best_compact_unet.pt"
+latest_checkpoint_name: "latest_compact_unet.pt"
+
+mlflow:
+  experiment_name: "sen12mscr-compact-unet"
+  tracking_uri: "mlruns"
+
+model:
+  in_channels: 3
+  out_channels: 3
+  base_channels: 16
+  bilinear: false
+  use_sigmoid: true
+  prior_reflectance: 0.107
+
+dataset:
+  bands: [4, 3, 2]
+  band_names: ["B04", "B03", "B02"]
+  normalize: true
+  clip_max: 10000.0
+  train_ratio: 0.80
+  val_ratio: 0.20
+  seed: 42
+
+training:
+  epochs: 5
+  batch_size: 8
+  learning_rate: 0.0002
+  weight_decay: 0.00001
+  optimizer: "adamw"
+  loss: "l1"
+  num_workers: 0
+  device: "auto"
+  max_train_samples: null
+  max_val_samples: null

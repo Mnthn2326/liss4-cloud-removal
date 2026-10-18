@@ -1,0 +1,68 @@
+{
+  "phase": "Phase 7.6",
+  "status": "blocked",
+  "decision": "NO-GO",
+  "summary": "Direct inference of the Sentinel-2-trained compact U-Net on the Resourcesat-2A LISS-IV product is scientifically indefensible due to a fundamental spectral band mismatch (absence of a Blue band in LISS-IV; substitution with Near-Infrared), uncalibrated radiometry (10-bit raw digital numbers vs physical surface reflectance), spatial resolution mismatch (5m vs 10m), and the absence of a genuine paired cloud-free LISS-IV reference.",
+  "evidence": {
+    "liss4_raw_product_dir": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA",
+    "liss4_metadata_file": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND_META.txt",
+    "liss4_stacked_product": "data/interim/stacked_product/stacked.tif",
+    "model_checkpoint": "checkpoints/compact/best_compact_unet.pt",
+    "model_config": {
+      "model_type": "UNet",
+      "base_channels": 16,
+      "in_channels": 3,
+      "out_channels": 3,
+      "prior_reflectance": 0.107,
+      "total_trainable_params": 1942611
+    },
+    "model_expected_input": {
+      "channels": [
+        "Sentinel-2 B04 (Red, 665 nm)",
+        "Sentinel-2 B03 (Green, 560 nm)",
+        "Sentinel-2 B02 (Blue, 490 nm)"
+      ],
+      "spatial_resolution_meters": 10.0,
+      "radiometric_scale": "Surface Reflectance in [0.0, 1.0] (DN / 10000.0)"
+    },
+    "liss4_product_specifications": {
+      "satellite": "IRS-R2A (Resourcesat-2A)",
+      "sensor": "L4FX (LISS-IV Multispectral)",
+      "bands_present": [
+        "BAND2 (Green, 520 - 590 nm)",
+        "BAND3 (Red, 620 - 680 nm)",
+        "BAND4 (Near-Infrared / NIR, 770 - 860 nm)"
+      ],
+      "blue_band_present": false,
+      "spatial_resolution_meters": 5.0,
+      "radiometric_quantization": "10-bit Digital Numbers in [0, 1023] stored in uint16",
+      "radiometric_calibration_status": "Raw DN (uncalibrated to TOA Radiance or Surface Reflectance)",
+      "ground_truth_clear_reference": null
+    }
+  },
+  "known_limitations": [
+    "Spectral Mismatch: LISS-IV completely lacks a Blue channel (0.45 - 0.51 um). It provides Green (B2), Red (B3), and NIR (B4). Substituting NIR into the model's Blue input channel is physically and scientifically invalid because vegetation and soil exhibit drastically different optical scattering in NIR compared to Blue.",
+    "Radiometric Calibration Disparity: The U-Net expects physical surface reflectance in [0.0, 1.0]. The LISS-IV stack contains raw 10-bit quantized digital counts (0 - 1023). Naive scaling (e.g. DN / 1023) does not account for sensor gains (Lmin, Lmax), solar irradiance (ESUN), earth-sun distance, or atmospheric attenuation.",
+    "Spatial Resolution Discrepancy: LISS-IV has a 5.0m pixel resolution, while the U-Net was trained on 10.0m Sentinel-2 imagery. A 256x256 patch represents 1280m x 1280m in LISS-IV versus 2560m x 2560m in Sentinel-2, causing a 2x spatial receptive-field distortion across all convolutional layers.",
+    "No Paired Cloud-Free Reference: The LISS-IV acquisition (RAF03JUN2026049233009500060SSANSTUC00GTDA) is a mono-temporal scene from June 3, 2026. Without an orthorectified, cloud-free LISS-IV target image over the identical footprint, quantitative evaluation metrics (MAE, PSNR, SSIM) cannot be computed without fabrication."
+  ],
+  "blocking_questions": [
+    "How should the missing Blue band be addressed? (e.g. training a dedicated Green-Red-NIR false-color composite model, or applying cross-sensor spectral synthesis).",
+    "What solar irradiance (ESUN) values and atmospheric correction model should be applied to convert LISS-IV 10-bit DNs into physical Bottom-of-Atmosphere (BOA) surface reflectance?",
+    "Should LISS-IV be spatially resampled (2x downsampling to 10m) to match Sentinel-2 receptive fields, or should the model architecture be fine-tuned directly on 5m patches?",
+    "Where will paired cloud-free LISS-IV reference data be acquired given the 24-day revisit cycle and across-track parallax of Resourcesat-2A?"
+  ],
+  "actions_taken": [
+    "Audited LISS-IV product metadata in BAND_META.txt and RAF03JUN2026049233009500060SSANSTUC00GTDA.meta.",
+    "Inspected preprocessed stacked raster in data/interim/stacked_product/stacked.tif.",
+    "Compared spectral response functions and band wavelengths of Resourcesat-2A LISS-IV against Sentinel-2 MSI.",
+    "Verified model checkpoint configuration and input requirements in checkpoints/compact/best_compact_unet.pt.",
+    "Audited spatial resolution, coordinate reference systems, and radiometric quantization.",
+    "Concluded that direct inference without valid band mapping and physical reflectance calibration is scientifically indefensible, issuing a NO-GO decision."
+  ],
+  "accuracy_claims": "No accuracy claims (MAE, PSNR, SSIM, or visual cloud removal quality) are made on LISS-IV imagery. The Sentinel-2 validation metrics (MAE 0.00667, PSNR 40.0 dB) apply strictly to SEN12MS-CR Sentinel-2 data and do not generalize to LISS-IV.",
+  "artifacts_created": [
+    "reports/phase7_6_liss4_feasibility.json",
+    "reports/phase7_6_liss4_feasibility.md"
+  ]
+}

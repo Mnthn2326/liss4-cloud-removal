@@ -1,0 +1,61 @@
+# Continuous Integration for liss4-cloud-removal
+#
+# Runs deterministic, self-contained unit and integration tests on push and pull requests.
+# Tests requiring local datasets, trained checkpoints, or DVC remotes are guarded
+# with pytest.skip() and will skip gracefully in a clean CI environment.
+#
+# Constraints & Principles:
+#   - Does NOT retrain models or acquire satellite datasets.
+#   - Does NOT push to DVC remotes or expose credentials/secrets.
+#   - Uses CPU-only PyTorch wheels to ensure fast, deterministic CI execution.
+#   - Single source of truth for dependencies via pyproject.toml / requirements.txt.
+
+name: CI
+
+"on":
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: Test Suite (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Upgrade pip & install CPU PyTorch
+        run: |
+          python -m pip install --upgrade pip
+          # Pre-install CPU-only PyTorch to avoid downloading heavy CUDA wheels
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install project and dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Environment sanity check
+        run: |
+          python -c "import cloud_removal; print('cloud_removal version:', cloud_removal.__version__)"
+          python -c "import torch; print('PyTorch:', torch.__version__, '| CUDA available:', torch.cuda.is_available())"
+          python -c "import rasterio; print('Rasterio:', rasterio.__version__)"
+          python -c "import mlflow; print('MLflow:', mlflow.__version__)"
+
+      - name: Run test suite
+        run: |
+          python -m pytest tests/ -v --tb=short

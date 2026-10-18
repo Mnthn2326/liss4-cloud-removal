@@ -1,0 +1,10 @@
+stages:
+  preprocess:
+    cmd: python -m cloud_removal.preprocess --input-dir data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA --output-dir data/interim/stacked_product
+    deps:
+      - src/cloud_removal/preprocess.py
+      - data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND2.tif
+      - data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND3.tif
+      - data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND4.tif
+    outs:
+      - data/interim/stacked_product

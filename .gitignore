@@ -101,6 +101,9 @@ mlartifacts/
 .dvc/tmp/
 .dvc/*.local
 
+# Scratch & Temporary Development Artifacts
+scratch/
+
 # OS & Editor Files
 .DS_Store
 Thumbs.db

@@ -27,9 +27,10 @@ The extracted Resourcesat-2A LISS-IV product is tracked as a single cohesive dat
 - **Source Directory**: `data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/`
 - **Total Dataset Size**: `1,759,106,380 bytes` (~1.64 GiB uncompressed)
 - **Constituent Files (8)**:
-  - `BAND2.tif`: Green band raster ($586,299,606\text{ bytes}$)
-  - `BAND3.tif`: Red band raster ($586,299,606\text{ bytes}$)
-  - `BAND4.tif`: NIR band raster ($586,299,606\text{ bytes}$)
+  - `BAND2.tif`: Source band 2 raster ($586,299,606\text{ bytes}$)
+  - `BAND3.tif`: Source band 3 raster ($586,299,606\text{ bytes}$)
+  - `BAND4.tif`: Source band 4 raster ($586,299,606\text{ bytes}$)
+
   - `BAND_META.txt`: Acquisition, sensor angles, and radiometric calibration metadata
   - `ACC_REP.txt`: Geometric accuracy report
   - `RAF03JUN2026049233009500060SSANSTUC00GTDA.meta`: Detailed product metadata

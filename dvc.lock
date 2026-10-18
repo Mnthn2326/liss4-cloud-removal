@@ -1,0 +1,29 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python -m cloud_removal.preprocess --input-dir 
+      data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA --output-dir 
+      data/interim/stacked_product
+    deps:
+    - path: data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND2.tif
+      hash: md5
+      md5: f94f8513ed6808e2e542575186243ec8
+      size: 586299606
+    - path: data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND3.tif
+      hash: md5
+      md5: 8e42a84b6998c46096972a76616cb2af
+      size: 586299606
+    - path: data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND4.tif
+      hash: md5
+      md5: 5b568dab910c954bc3e65aca499d51ce
+      size: 586299606
+    - path: src/cloud_removal/preprocess.py
+      hash: md5
+      md5: 637b6eabe9e752ecd6bf4567f9e9b4d3
+      size: 18530
+    outs:
+    - path: data/interim/stacked_product
+      hash: md5
+      md5: 55cb7346e006d976b6592a8c060bf006.dir
+      size: 540905199
+      nfiles: 3

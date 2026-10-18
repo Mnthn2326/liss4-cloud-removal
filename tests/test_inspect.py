@@ -42,9 +42,9 @@ def synthetic_raster_fixture(tmp_path: Path) -> Path:
         dst.write(band_b2, 1)
         dst.write(band_b3, 2)
         dst.write(band_b4, 3)
-        dst.set_band_description(1, "BAND2 - Green")
-        dst.set_band_description(2, "BAND3 - Red")
-        dst.set_band_description(3, "BAND4 - NIR")
+        dst.set_band_description(1, "BAND2")
+        dst.set_band_description(2, "BAND3")
+        dst.set_band_description(3, "BAND4")
 
     return test_tiff
 
@@ -60,21 +60,22 @@ def test_inspect_raster_valid(synthetic_raster_fixture: Path):
     assert "32643" in result["crs"]
     assert len(result["band_statistics"]) == 3
 
-    green_stats = result["band_statistics"][0]
-    assert green_stats["band"] == 1
-    assert green_stats["dtype"] == "uint16"
-    assert green_stats["nodata"] == 0
+    band2_stats = result["band_statistics"][0]
+    assert band2_stats["band"] == 1
+    assert band2_stats["dtype"] == "uint16"
+    assert band2_stats["nodata"] == 0
     # First row is 0 (nodata), so 64*63 valid pixels
-    assert green_stats["valid_pixels"] == 64 * 63
-    assert 100 <= green_stats["min"] <= 400
+    assert band2_stats["valid_pixels"] == 64 * 63
+    assert 100 <= band2_stats["min"] <= 400
 
 
 def test_inspect_raster_ignore_zero(synthetic_raster_fixture: Path):
     """Test inspecting raster while treating zero as collar padding."""
     result = inspect_raster(synthetic_raster_fixture, chunk_rows=32, ignore_zero=True)
-    green_stats = result["band_statistics"][0]
-    assert green_stats["valid_pixels"] == 64 * 63
-    assert green_stats["min"] >= 100
+    band2_stats = result["band_statistics"][0]
+    assert band2_stats["valid_pixels"] == 64 * 63
+    assert band2_stats["min"] >= 100
+
 
 
 def test_read_raster_window_valid(synthetic_raster_fixture: Path):
