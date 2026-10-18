@@ -1,0 +1,6 @@
+[core]
+    remote = local_storage
+[cache]
+    type = "hardlink,symlink,copy"
+['remote "local_storage"']
+    url = E:\dvc-storage\liss4-cloud-removal

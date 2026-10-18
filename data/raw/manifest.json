@@ -1,0 +1,81 @@
+{
+  "product_id": "2643035131",
+  "ots_product_id": "RAF03JUN2026049233009500060SSANSTUC00GTDA",
+  "satellite": "IRS-R2A",
+  "sensor": "L4FX",
+  "sub_scene": "A",
+  "path": "095",
+  "row": "060",
+  "acquisition_date": "2026-06-03",
+  "scene_center_time_utc": "05:41:22.998276",
+  "processing_level": "STD",
+  "resampling_method": "CC",
+  "source_directory": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA",
+  "dvc_file": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA.dvc",
+  "total_size_bytes": 1759106380,
+  "raster_metadata": {
+    "dimensions": {
+      "width": 18066,
+      "height": 16223
+    },
+    "crs": "EPSG:32643",
+    "pixel_resolution_meters": {
+      "x": 5.0,
+      "y": 5.0
+    },
+    "data_type": "uint16",
+    "raw_bit_depth": "10-bit",
+    "uncompressed": true,
+    "bands_available": ["BAND2.tif", "BAND3.tif", "BAND4.tif"]
+  },
+  "files": [
+    {
+      "filename": "ACC_REP.txt",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/ACC_REP.txt",
+      "size_bytes": 713,
+      "sha256": "ad61a7f98c80daedc7c09235a57493285de35309f5867de8b43209fac7b5da8c"
+    },
+    {
+      "filename": "BAND2.tif",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND2.tif",
+      "size_bytes": 586299606,
+      "sha256": "4af49a3c102451e350eee8b38400f68f62f536faf9b4c93895c7bf804f5042bb"
+    },
+    {
+      "filename": "BAND3.tif",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND3.tif",
+      "size_bytes": 586299606,
+      "sha256": "ed01776cccb8a742d8c7217bb5229303df971582ce793212e6312086f748b6c5"
+    },
+    {
+      "filename": "BAND4.tif",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND4.tif",
+      "size_bytes": 586299606,
+      "sha256": "d451632c77dfe1a1df19eca237e55d22532a03096880a0dc4e4096b917d2db9b"
+    },
+    {
+      "filename": "BAND_META.txt",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND_META.txt",
+      "size_bytes": 2616,
+      "sha256": "8b8c6da9175133185f94d363f3a3aac8da919f186fcca95fed7173a6db54fe78"
+    },
+    {
+      "filename": "RAF03JUN2026049233009500060SSANSTUC00GTDA.jpg",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/RAF03JUN2026049233009500060SSANSTUC00GTDA.jpg",
+      "size_bytes": 200101,
+      "sha256": "bc77ef167ebf576d1f24ff00a8eb3c8bb2ba48c3d6e6eb9510cc4bd0339c62aa"
+    },
+    {
+      "filename": "RAF03JUN2026049233009500060SSANSTUC00GTDA.jpg.aux.xml",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/RAF03JUN2026049233009500060SSANSTUC00GTDA.jpg.aux.xml",
+      "size_bytes": 1481,
+      "sha256": "5bb4be40a3eebdc1bd588fc6e57fa7e67bf60cce2bd119ca551b897902c90c5c"
+    },
+    {
+      "filename": "RAF03JUN2026049233009500060SSANSTUC00GTDA.meta",
+      "relative_path": "data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/RAF03JUN2026049233009500060SSANSTUC00GTDA.meta",
+      "size_bytes": 2651,
+      "sha256": "90fc5647e614a9935ce408248bc683df9b5ac55ff28ed7560809e8bd57a8cf44"
+    }
+  ]
+}
