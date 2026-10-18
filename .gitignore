@@ -1,0 +1,83 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Data & Satellite Imagery
+data/
+data/raw/
+data/processed/
+data/interim/
+*.tif
+*.tiff
+*.hdf
+*.nc
+*.zip
+*.tar.gz
+
+# Models & Artifacts
+models/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.pkl
+*.h5
+
+# Experiment Tracking (MLflow / DVC)
+mlruns/
+mlartifacts/
+.dvc/cache/
+.dvc/tmp/
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
