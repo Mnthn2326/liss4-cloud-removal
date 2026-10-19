@@ -21,6 +21,7 @@ dependencies = [
     "uvicorn>=0.20.0",
     "pydantic>=2.0.0",
     "prometheus-client>=0.17.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

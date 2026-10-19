@@ -521,6 +521,10 @@ def create_app(
         data = generate_latest(metrics_mgr.registry)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
+    # Attach interactive Web UI and endpoints
+    from cloud_removal.ui import setup_ui
+    setup_ui(app)
+
     return app
 
 

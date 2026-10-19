@@ -9,6 +9,8 @@ services:
       - "8000:8000"
     volumes:
       - ./checkpoints/compact/best_compact_unet.pt:/models/checkpoint.pt:ro
+      - ./src:/app/src
+      - ./data:/app/data:ro
     environment:
       - MODEL_CHECKPOINT=/models/checkpoint.pt
       - PYTHONUNBUFFERED=1

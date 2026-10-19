@@ -6,6 +6,8 @@ LISS4 Cloud Removal is a demonstration MLOps project for removing cloud cover fr
 The primary engineering focus of this project is establishing robust MLOps practices: data versioning, reproducibility, experiment tracking, and model lineage.
 
 > **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), **Phase 8: Prototype Packaging and Final Verification**, **Phase 9: Continuous Integration with GitHub Actions**, **Phase 10: Docker + FastAPI Inference Service** (see [`docs/api.md`](docs/api.md)), and **Phase 11: Prometheus + Grafana Monitoring Stack** (see [`docs/monitoring.md`](docs/monitoring.md)).
+>
+> 📖 **Project Guide & Technical Walkthrough:** For the complete technical walkthrough, architecture diagrams, verified experimental results, and defense Q&A preparation for project guides, see [`docs/PROJECT_WALKTHROUGH.md`](docs/PROJECT_WALKTHROUGH.md).
 
 ## Objectives
 - Establish an end-to-end MLOps pipeline for satellite imagery cloud removal.
@@ -130,6 +132,7 @@ $env:MODEL_CHECKPOINT="checkpoints/compact/best_compact_unet.pt"
 uvicorn cloud_removal.api:app --host 0.0.0.0 --port 8000
 ```
 Interactive OpenAPI documentation is available at `http://localhost:8000/docs` and `http://localhost:8000/openapi.json`.
+The interactive Web UI is accessible at `http://localhost:8000/` (see [`docs/ui.md`](docs/ui.md)).
 
 ### 3. Build & Run with Docker
 Model checkpoints are never baked into the container image. Inject trained weights dynamically via a read-only volume mount:
