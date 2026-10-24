@@ -25,6 +25,7 @@ dataset:
   train_ratio: 0.80
   val_ratio: 0.20
   seed: 42
+  augment: true
 
 training:
   epochs: 5
@@ -32,7 +33,14 @@ training:
   learning_rate: 0.0002
   weight_decay: 0.00001
   optimizer: "adamw"
-  loss: "l1"
+  loss: "compound_l1_ssim"
+  ssim_weight: 0.2
+  scheduler: "cosine"
+  t_max: 5
+  eta_min: 0.000001
+  early_stopping: true
+  patience: 5
+  min_delta: 0.0001
   num_workers: 0
   device: "auto"
   max_train_samples: null

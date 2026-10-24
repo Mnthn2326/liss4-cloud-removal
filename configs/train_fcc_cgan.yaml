@@ -1,0 +1,63 @@
+# Pix2Pix Conditional GAN (cGAN) Training Configuration (FCC Baseline)
+# Aligns with ISRO Resourcesat-2A LISS-IV Spectral Band Configuration:
+#   Sentinel-2 B08 (NIR, ~842nm) -> LISS-IV Band 4 (NIR, 770-860nm)
+#   Sentinel-2 B04 (Red, ~665nm) -> LISS-IV Band 3 (Red, 620-680nm)
+#   Sentinel-2 B03 (Green, ~560nm) -> LISS-IV Band 2 (Green, 520-590nm)
+
+identifier: "cgan_pix2pix_fcc"
+seed: 42
+manifest_path: "data/raw/sen12mscr/manifest.json"
+checkpoint_dir: "checkpoints/fcc_cgan"
+checkpoint_name: "best_fcc_cgan_generator.pt"
+latest_checkpoint_name: "latest_fcc_cgan_generator.pt"
+checkpoint_d_name: "best_fcc_cgan_discriminator.pt"
+latest_checkpoint_d_name: "latest_fcc_cgan_discriminator.pt"
+
+mlflow:
+  experiment_name: "sen12mscr-fcc-cgan"
+  tracking_uri: "mlruns"
+
+model:
+  model_type: "UNet"
+  in_channels: 3
+  out_channels: 3
+  base_channels: 16
+  bilinear: false
+  use_sigmoid: true
+  prior_reflectance: 0.107
+
+discriminator:
+  model_type: "PatchGANDiscriminator"
+  ndf: 32
+  n_layers: 3
+  norm_layer: "batch"
+
+dataset:
+  name: "SEN12MS-CR-FCC"
+  composite_mode: "fcc"
+  # 1-indexed raster band numbers: 8 (NIR), 4 (Red), 3 (Green)
+  bands: [8, 4, 3]
+  band_names: ["B08", "B04", "B03"]
+  normalize: true
+  clip_max: 10000.0
+  train_ratio: 0.80
+  val_ratio: 0.20
+  seed: 42
+  augment: true
+
+training:
+  epochs: 5
+  batch_size: 4
+  learning_rate_g: 0.0002
+  learning_rate_d: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  lambda_l1: 100.0
+  use_lsgan: false
+  early_stopping: true
+  patience: 5
+  min_delta: 0.0001
+  num_workers: 0
+  device: "auto"
+  max_train_samples: null
+  max_val_samples: null

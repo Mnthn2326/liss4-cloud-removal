@@ -19,11 +19,135 @@ stages:
       size: 586299606
     - path: src/cloud_removal/preprocess.py
       hash: md5
-      md5: 637b6eabe9e752ecd6bf4567f9e9b4d3
-      size: 18530
+      md5: 711ac100cc2ef97c0e3e2626df22e197
+      size: 36605
     outs:
     - path: data/interim/stacked_product
       hash: md5
       md5: 55cb7346e006d976b6592a8c060bf006.dir
       size: 540905199
       nfiles: 3
+  acquire:
+    cmd: python -m cloud_removal.acquire_sen12mscr --output-manifest 
+      data/manifests/sen12mscr_manifest.json --verify-existing
+    deps:
+    - path: data/raw/sen12mscr
+      hash: md5
+      md5: f8285936fa11bebe44aca2c46b7d8278.dir
+      size: 2454017838
+      nfiles: 1439
+    - path: src/cloud_removal/acquire_sen12mscr.py
+      hash: md5
+      md5: cd550fd82c08f8f6359cfdb3a6aae363
+      size: 11308
+    outs:
+    - path: data/manifests/sen12mscr_manifest.json
+      hash: md5
+      md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
+      size: 168687
+  train:
+    cmd: python -m cloud_removal.train --config configs/train_compact_unet.yaml
+    deps:
+    - path: configs/train_compact_unet.yaml
+      hash: md5
+      md5: 17b93ce526656406fb20324549f78c56
+      size: 1006
+    - path: data/manifests/sen12mscr_manifest.json
+      hash: md5
+      md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
+      size: 168687
+    - path: src/cloud_removal/metrics.py
+      hash: md5
+      md5: f515cad558c2df1cd19ddb27bad62fdc
+      size: 31496
+    - path: src/cloud_removal/models/unet.py
+      hash: md5
+      md5: d5312b97e4982cbf81b50b061d8e7ec2
+      size: 7043
+    - path: src/cloud_removal/sen12mscr.py
+      hash: md5
+      md5: 541dd1790d3f5512248dfda2673781e9
+      size: 18427
+    - path: src/cloud_removal/train.py
+      hash: md5
+      md5: cd7df32ffd6013d4393086ac565bfcef
+      size: 30530
+    params:
+      configs/train_compact_unet.yaml:
+        dataset:
+          bands:
+          - 4
+          - 3
+          - 2
+          band_names:
+          - B04
+          - B03
+          - B02
+          normalize: true
+          clip_max: 10000.0
+          train_ratio: 0.8
+          val_ratio: 0.2
+          seed: 42
+          augment: true
+        model:
+          in_channels: 3
+          out_channels: 3
+          base_channels: 16
+          bilinear: false
+          use_sigmoid: true
+          prior_reflectance: 0.107
+        training:
+          epochs: 5
+          batch_size: 8
+          learning_rate: 0.0002
+          weight_decay: 1e-05
+          optimizer: adamw
+          loss: compound_l1_ssim
+          ssim_weight: 0.2
+          scheduler: cosine
+          t_max: 5
+          eta_min: 1e-06
+          early_stopping: true
+          patience: 5
+          min_delta: 0.0001
+          num_workers: 0
+          device: auto
+          max_train_samples:
+          max_val_samples:
+    outs:
+    - path: checkpoints/compact/best_compact_unet.pt
+      hash: md5
+      md5: c27776072945283d7377496d792b4b3b
+      size: 23421867
+  evaluate:
+    cmd: python -m cloud_removal.evaluate --checkpoint 
+      checkpoints/compact/best_compact_unet.pt --config 
+      configs/train_compact_unet.yaml --manifest 
+      data/manifests/sen12mscr_manifest.json --split val --output 
+      reports/val_metrics.json
+    deps:
+    - path: checkpoints/compact/best_compact_unet.pt
+      hash: md5
+      md5: c27776072945283d7377496d792b4b3b
+      size: 23421867
+    - path: configs/train_compact_unet.yaml
+      hash: md5
+      md5: 17b93ce526656406fb20324549f78c56
+      size: 1006
+    - path: data/manifests/sen12mscr_manifest.json
+      hash: md5
+      md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
+      size: 168687
+    - path: src/cloud_removal/evaluate.py
+      hash: md5
+      md5: eb397010037f81785caa96720059c69b
+      size: 11237
+    - path: src/cloud_removal/metrics.py
+      hash: md5
+      md5: f515cad558c2df1cd19ddb27bad62fdc
+      size: 31496
+    outs:
+    - path: reports/val_metrics.json
+      hash: md5
+      md5: 3a5e53ab6e7b67b3e2dca7e81ce1101f
+      size: 1214

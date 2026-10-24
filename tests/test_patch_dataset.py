@@ -5,10 +5,8 @@ import pytest
 import torch
 
 from cloud_removal.patch_dataset import (
-    DatasetSplits,
     LISS4PatchDataset,
     PatchConfig,
-    assign_spatial_split,
     extract_paired_patches,
 )
 

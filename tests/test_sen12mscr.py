@@ -1,18 +1,18 @@
-"""Unit tests for SEN12MS-CR dataset loader and preprocessing adapter."""
+"""Unit tests for SEN12MS-CR dataset loader, preprocessing adapter, and geometric data augmentation."""
 
 import json
 from pathlib import Path
+
 import numpy as np
 import pytest
 import rasterio
-from rasterio.transform import from_origin
 import torch
+from rasterio.transform import from_origin
 
 from cloud_removal.sen12mscr import (
-    DEFAULT_RGB_BANDS,
-    PairedOpticalSample,
     SEN12MSCRConfig,
     SEN12MSCRDataset,
+    apply_geometric_augmentations,
     validate_sen12mscr_subset,
 )
 
@@ -67,13 +67,15 @@ def mock_sen12mscr_fixture(tmp_path: Path) -> Path:
             ) as dst:
                 dst.write(data)
 
-        paired_samples.append({
-            "patch_id": p_name,
-            "cloudy_file": c_fname,
-            "clear_file": clr_fname,
-            "size_bytes_cloudy": c_path.stat().st_size,
-            "size_bytes_clear": clr_path.stat().st_size,
-        })
+        paired_samples.append(
+            {
+                "patch_id": p_name,
+                "cloudy_file": c_fname,
+                "clear_file": clr_fname,
+                "size_bytes_cloudy": c_path.stat().st_size,
+                "size_bytes_clear": clr_path.stat().st_size,
+            }
+        )
 
     manifest = {
         "dataset_name": "SEN12MS-CR",
@@ -173,3 +175,110 @@ def test_real_acquired_dataset_if_present():
     sample = dataset[0]
     assert sample["cloudy"].shape == (3, 256, 256)
     assert sample["clear"].shape == (3, 256, 256)
+
+
+# ==============================================================================
+# Geometric Data Augmentation Unit Tests (Task 2)
+# ==============================================================================
+
+
+def test_apply_geometric_augmentations_flips_and_rotations():
+    """Verify that horizontal, vertical flips and rotations preserve values and structure."""
+    # 3-channel synthetic patch with distinct pixel values across axes
+    c = torch.arange(48, dtype=torch.float32).reshape(3, 4, 4)
+    clr = c * 2.0
+    mask = (c[:1] > 20).float()
+
+    # 1. Horizontal flip
+    c_hf, clr_hf, m_hf = apply_geometric_augmentations(
+        c, clr, mask, hflip=True, vflip=False, rot90_k=0
+    )
+    assert torch.equal(c_hf, torch.flip(c, dims=[-1]))
+    assert torch.equal(clr_hf, c_hf * 2.0)
+    assert torch.equal(m_hf, torch.flip(mask, dims=[-1]))
+
+    # 2. Vertical flip
+    c_vf, clr_vf, m_vf = apply_geometric_augmentations(
+        c, clr, mask, hflip=False, vflip=True, rot90_k=0
+    )
+    assert torch.equal(c_vf, torch.flip(c, dims=[-2]))
+    assert torch.equal(clr_vf, c_vf * 2.0)
+    assert torch.equal(m_vf, torch.flip(mask, dims=[-2]))
+
+    # 3. 90-degree rotation (k=1)
+    c_r1, clr_r1, m_r1 = apply_geometric_augmentations(
+        c, clr, mask, hflip=False, vflip=False, rot90_k=1
+    )
+    assert torch.equal(c_r1, torch.rot90(c, k=1, dims=[-2, -1]))
+    assert torch.equal(clr_r1, c_r1 * 2.0)
+    assert torch.equal(m_r1, torch.rot90(mask, k=1, dims=[-2, -1]))
+
+    # 4. 180-degree rotation (k=2)
+    c_r2, clr_r2 = apply_geometric_augmentations(c, clr, None, rot90_k=2)
+    assert torch.equal(c_r2, torch.rot90(c, k=2, dims=[-2, -1]))
+
+    # 5. 270-degree rotation (k=3)
+    c_r3, clr_r3 = apply_geometric_augmentations(c, clr, None, rot90_k=3)
+    assert torch.equal(c_r3, torch.rot90(c, k=3, dims=[-2, -1]))
+
+    # 6. 360-degree rotation (k=4) should be identity
+    c_r4, clr_r4 = apply_geometric_augmentations(c, clr, None, rot90_k=4)
+    assert torch.equal(c_r4, c)
+
+
+def test_apply_geometric_augmentations_rectangular_tensors():
+    """Verify that rectangular images correctly swap spatial dimensions upon 90°/270° rotation."""
+    H, W = 10, 20
+    c_rect = torch.arange(H * W, dtype=torch.float32).reshape(1, H, W).repeat(3, 1, 1)
+    clr_rect = c_rect + 5.0
+    mask_rect = torch.ones((1, H, W), dtype=torch.float32)
+
+    c_rot90, clr_rot90, m_rot90 = apply_geometric_augmentations(
+        c_rect, clr_rect, mask_rect, hflip=False, vflip=False, rot90_k=1
+    )
+    assert c_rot90.shape == (3, W, H)
+    assert clr_rot90.shape == (3, W, H)
+    assert m_rot90.shape == (1, W, H)
+    # Check pixel value conservation
+    assert torch.equal(torch.sort(c_rot90.flatten())[0], torch.sort(c_rect.flatten())[0])
+    # Check alignment preservation
+    assert torch.equal(clr_rot90, c_rot90 + 5.0)
+
+
+def test_apply_geometric_augmentations_numpy():
+    """Verify that NumPy arrays are handled identically without type conversion errors."""
+    c_np = np.arange(48, dtype=np.float32).reshape(3, 4, 4)
+    clr_np = c_np * 1.5
+
+    c_aug, clr_aug = apply_geometric_augmentations(c_np, clr_np, hflip=True, rot90_k=1)
+    assert isinstance(c_aug, np.ndarray)
+    assert isinstance(clr_aug, np.ndarray)
+    assert np.allclose(clr_aug, c_aug * 1.5)
+
+
+def test_dataset_augmentation_training_only(mock_sen12mscr_fixture: Path):
+    """Verify that augment=True enables augmentation for train split while leaving val unaugmented."""
+    cfg_aug = SEN12MSCRConfig(train_ratio=0.667, val_ratio=0.333, augment=True, seed=42)
+    train_ds = SEN12MSCRDataset.from_manifest(mock_sen12mscr_fixture, split="train", config=cfg_aug)
+    val_ds = SEN12MSCRDataset.from_manifest(mock_sen12mscr_fixture, split="val", config=cfg_aug)
+
+    assert train_ds.augment is True
+    # Validation dataset must remain deterministic and unaugmented
+    # Even when config has augment=True, val split items must not be augmented
+    item_val1 = val_ds[0]
+    item_val2 = val_ds[0]
+    assert torch.equal(item_val1["cloudy"], item_val2["cloudy"])
+    assert torch.equal(item_val1["clear"], item_val2["clear"])
+
+
+def test_dataset_disabling_augmentation(mock_sen12mscr_fixture: Path):
+    """Verify that when augment=False, dataset output is identical across repeated calls."""
+    cfg_no_aug = SEN12MSCRConfig(augment=False)
+    train_ds = SEN12MSCRDataset.from_manifest(
+        mock_sen12mscr_fixture, split="train", config=cfg_no_aug
+    )
+
+    item1 = train_ds[0]
+    item2 = train_ds[0]
+    assert torch.equal(item1["cloudy"], item2["cloudy"])
+    assert torch.equal(item1["clear"], item2["clear"])

@@ -8,9 +8,7 @@ Dataset wrapper for supervised paired training.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -53,7 +51,9 @@ class PatchConfig:
                 f"val={self.val_ratio}, test={self.test_ratio} (sum={total_ratio})"
             )
         if self.split_axis not in ("spatial_y", "spatial_x"):
-            raise ValueError(f"split_axis must be 'spatial_y' or 'spatial_x', got '{self.split_axis}'")
+            raise ValueError(
+                f"split_axis must be 'spatial_y' or 'spatial_x', got '{self.split_axis}'"
+            )
 
 
 @dataclass
@@ -88,8 +88,8 @@ class PatchSample:
     """Paired multi-modal patch sample."""
 
     metadata: PatchMetadata
-    clear: np.ndarray       # (C, H, W)
-    cloudy: np.ndarray      # (C, H, W)
+    clear: np.ndarray  # (C, H, W)
+    cloudy: np.ndarray  # (C, H, W)
     cloud_mask: np.ndarray  # (1, H, W)
     valid_mask: np.ndarray  # (1, H, W)
 
@@ -214,22 +214,30 @@ def extract_paired_patches(
     # Normalize mask shapes to (1, H, W)
     if cloud_mask.ndim == 2:
         if cloud_mask.shape != (height, width):
-            raise ValueError(f"cloud_mask shape {cloud_mask.shape} != spatial shape ({height}, {width})")
+            raise ValueError(
+                f"cloud_mask shape {cloud_mask.shape} != spatial shape ({height}, {width})"
+            )
         c_mask_3d = cloud_mask[np.newaxis, :, :]
     elif cloud_mask.ndim == 3 and cloud_mask.shape[0] == 1:
         if cloud_mask.shape[1:] != (height, width):
-            raise ValueError(f"cloud_mask shape {cloud_mask.shape} != spatial shape ({height}, {width})")
+            raise ValueError(
+                f"cloud_mask shape {cloud_mask.shape} != spatial shape ({height}, {width})"
+            )
         c_mask_3d = cloud_mask
     else:
         raise ValueError(f"cloud_mask must have shape (H, W) or (1, H, W), got {cloud_mask.shape}")
 
     if valid_mask.ndim == 2:
         if valid_mask.shape != (height, width):
-            raise ValueError(f"valid_mask shape {valid_mask.shape} != spatial shape ({height}, {width})")
+            raise ValueError(
+                f"valid_mask shape {valid_mask.shape} != spatial shape ({height}, {width})"
+            )
         v_mask_3d = valid_mask[np.newaxis, :, :]
     elif valid_mask.ndim == 3 and valid_mask.shape[0] == 1:
         if valid_mask.shape[1:] != (height, width):
-            raise ValueError(f"valid_mask shape {valid_mask.shape} != spatial shape ({height}, {width})")
+            raise ValueError(
+                f"valid_mask shape {valid_mask.shape} != spatial shape ({height}, {width})"
+            )
         v_mask_3d = valid_mask
     else:
         raise ValueError(f"valid_mask must have shape (H, W) or (1, H, W), got {valid_mask.shape}")

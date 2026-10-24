@@ -4,7 +4,8 @@
 **Repository:** `liss4-cloud-removal`  
 **Current Phase:** Phase 11 Completed (Prometheus + Grafana Monitoring Stack)  
 **Target Audience:** Project Guide, External Evaluator, and Academic Defense Committee  
-**Document Purpose:** Definitive, technically verified, single-source reference to understand, demonstrate, defend, and explain every component of this project as it exists in the codebase today.
+**Document Purpose:** Definitive, technically verified, single-source reference to understand, demonstrate, defend, and explain every component of this project as it exists in the codebase today.  
+**Quick Summary:** 👉 Looking for the 10-minute beginner-friendly cheat sheet? See [`docs/SIMPLE_PROJECT_WALKTHROUGH.md`](SIMPLE_PROJECT_WALKTHROUGH.md).
 
 ---
 

@@ -17,7 +17,9 @@ import torch.nn.functional as F
 class DoubleConv(nn.Module):
     """Two consecutive 3x3 convolutions, each followed by BatchNorm and ReLU."""
 
-    def __init__(self, in_channels: int, out_channels: int, mid_channels: Optional[int] = None) -> None:
+    def __init__(
+        self, in_channels: int, out_channels: int, mid_channels: Optional[int] = None
+    ) -> None:
         super().__init__()
         if mid_channels is None:
             mid_channels = out_channels
@@ -54,6 +56,7 @@ class Up(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int, bilinear: bool = False) -> None:
         super().__init__()
+        self.up: nn.Module
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
             self.conv = DoubleConv(in_channels, out_channels, mid_channels=in_channels // 2)
@@ -149,8 +152,10 @@ class UNet(nn.Module):
                     f"prior_reflectance must be strictly between 0 and 1, got {prior_reflectance}"
                 )
             import math
+
             bias_val = math.log(prior_reflectance / (1.0 - prior_reflectance))
-            nn.init.constant_(self.outc.conv.bias, bias_val)
+            if self.outc.conv.bias is not None:
+                nn.init.constant_(self.outc.conv.bias, bias_val)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Encoder with skip connections

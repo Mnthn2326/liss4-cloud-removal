@@ -113,3 +113,93 @@ data/interim/
     ├── valid_mask.tif        # 1-band binary validity mask (uint8) [448 KB]
     └── manifest.json         # Complete provenance, hash, and parameter manifest [7 KB]
 ```
+
+---
+
+## 8. Radiometric TOA Radiance & Reflectance Calibration Pipeline (Phase 2)
+
+Phase 2 implements the mathematically rigorous conversion from stored 10-bit integer Digital Numbers (DN) to physical Top-Of-Atmosphere (TOA) spectral radiance and dimensionless TOA reflectance.
+
+### 8.1 The Physical Conversion Chain
+The conversion avoids ad-hoc min-max scaling and follows the standard physical formulation:
+
+$$\text{Stored DN (10-bit)} \xrightarrow{\text{Linear Sensor Gains}} L_\lambda\text{ (TOA Radiance)} \xrightarrow{\text{Solar Irradiance \& Geometry}} \rho_{\text{TOA}}\text{ (Reflectance)} \xrightarrow{\text{Permute to FCC}} \text{Model Input Tensor}$$
+
+### 8.2 DN-to-Radiance Formulation
+For standard georeferenced Resourcesat-2/2A LISS-IV products, conversion from raw digital counts to at-sensor spectral radiance is governed by the documented linear calibration equation:
+
+$$L_\lambda = L_{\min} + \left( \frac{L_{\max} - L_{\min}}{\text{DN}_{\max} - \text{DN}_{\min}} \right) \cdot (\text{DN} - \text{DN}_{\min})$$
+
+Where:
+- $\text{DN}$: Stored integer digital number ($\text{DN}_{\min} = 0$, $\text{DN}_{\max} = 1023$ for 10-bit quantization).
+- $L_{\min}, L_{\max}$: Band-specific calibration radiance limits provided in `BAND_META.txt` and `.meta`.
+- $L_\lambda$: Spectral radiance in $\text{mW} / (\text{cm}^2 \cdot \text{sr} \cdot \mu\text{m})$.
+
+**Calibration Parameters from Product Metadata (`BAND_META.txt`):**
+
+| Band | Spectral Region | $\text{DN}_{\min}$ | $\text{DN}_{\max}$ | $L_{\min}\ (\text{mW}/\text{cm}^2/\text{sr}/\mu\text{m})$ | $L_{\max}\ (\text{mW}/\text{cm}^2/\text{sr}/\mu\text{m})$ |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| **BAND2** | Green ($0.52 - 0.59\ \mu\text{m}$) | $0$ | $1023$ | $0.0000$ | $52.0000$ |
+| **BAND3** | Red ($0.62 - 0.68\ \mu\text{m}$) | $0$ | $1023$ | $0.0000$ | $47.0000$ |
+| **BAND4** | NIR ($0.77 - 0.86\ \mu\text{m}$) | $0$ | $1023$ | $0.0000$ | $31.5000$ |
+
+### 8.3 Radiance-to-TOA Reflectance Formulation
+Spectral radiance is converted to dimensionless Top-Of-Atmosphere reflectance $\rho_{\lambda, \text{TOA}}$ by accounting for solar illumination geometry and orbital Earth-Sun distance:
+
+$$\rho_{\lambda, \text{TOA}} = \frac{\pi \cdot L_\lambda \cdot d^2}{\text{ESUN}_\lambda \cdot \cos(\theta_s)}$$
+
+Where:
+- $L_\lambda$: At-sensor spectral radiance in $\text{mW} / (\text{cm}^2 \cdot \text{sr} \cdot \mu\text{m})$.
+- $d$: Earth-Sun astronomical distance in Astronomical Units (AU) on the day of acquisition:
+  $$d = 1.0 - 0.01672 \cos\left( \frac{2\pi (\text{DOY} - 4)}{365.25} \right)$$
+  *(For acquisition date 03-JUN-2026, $\text{DOY} = 154$, yielding $d = 1.0142\ \text{AU}$)*.
+- $\theta_s$: Solar zenith angle in degrees ($\theta_s = 90^\circ - \text{SunElevationAtCenter} = 90.0^\circ - 70.026528^\circ = 19.973472^\circ$).
+- $\cos(\theta_s) = \sin(70.026528^\circ) \approx 0.9398$.
+- $\text{ESUN}_\lambda$: Band-averaged mean exo-atmospheric solar spectral irradiance in $\text{mW} / (\text{cm}^2 \cdot \mu\text{m})$.
+
+### 8.4 Authoritative ESUN Parameters & Provenance
+Because Bhoonidhi standard product metadata omits solar irradiance parameters, authoritative constants are sourced from official ISRO sensor calibration publications:
+
+> **Authoritative Source:** Pandya, M. R., et al. (2013). *"At-sensor Solar Exo-atmospheric Irradiance, Rayleigh Optical Thickness and Spectral parameters of RS-2 Sensors."* Scientific Report No. `SAC/EPSA/SPSG/SR/01/2013`, Space Applications Centre (SAC), Indian Space Research Organisation (ISRO), Ahmedabad, India.
+
+| Band | Spectral Range ($\mu\text{m}$) | Central Wavelength ($\mu\text{m}$) | $\text{ESUN}_\lambda\ (\text{mW}/\text{cm}^2/\mu\text{m})$ | $\text{ESUN}_\lambda\ (\text{W}/\text{m}^2/\mu\text{m})$ |
+| :---: | :---: | :---: | :---: | :---: |
+| **BAND2 (Green)** | $0.52 - 0.59$ | $0.555$ | **$181.89$** | $1818.9$ |
+| **BAND3 (Red)** | $0.62 - 0.68$ | $0.650$ | **$156.96$** | $1569.6$ |
+| **BAND4 (NIR)** | $0.77 - 0.86$ | $0.815$ | **$110.48$** | $1104.8$ |
+
+*Units Consistency Note:* When $L_\lambda$ and $\text{ESUN}_\lambda$ are both specified in $\text{mW} / (\text{cm}^2 \cdot \mu\text{m})$, the metric units cancel out, yielding a strictly dimensionless physical reflectance $\rho_{\text{TOA}} \in [0.0, 1.0]$.
+
+---
+
+## 9. Cross-Sensor Scientific Alignment (Sentinel-2 to LISS-IV)
+
+### 9.1 False-Color Composite (FCC) Spectral Correspondence
+Natural-color RGB transfer from Sentinel-2 to LISS-IV is physically impossible because LISS-IV completely lacks a Blue band. In Phase 2, a 3-band False-Color Composite (FCC) configuration is established:
+
+| Model Input Channel | Sentinel-2 Band (SEN12MS-CR) | LISS-IV Band (Resourcesat-2A) | Central Wavelengths ($\mu\text{m}$) | Spectral Role |
+| :---: | :---: | :---: | :---: | :---: |
+| **Channel 0** | **B08** ($10\text{ m}$) | **BAND4** ($5\text{ m}$) | $0.842\ \mu\text{m} \leftrightarrow 0.815\ \mu\text{m}$ | Near-Infrared (NIR) |
+| **Channel 1** | **B04** ($10\text{ m}$) | **BAND3** ($5\text{ m}$) | $0.665\ \mu\text{m} \leftrightarrow 0.650\ \mu\text{m}$ | Red |
+| **Channel 2** | **B03** ($10\text{ m}$) | **BAND2** ($5\text{ m}$) | $0.560\ \mu\text{m} \leftrightarrow 0.555\ \mu\text{m}$ | Green |
+
+### 9.2 Critical Cross-Sensor Domain Disparities
+While FCC alignment resolves channel count and primary spectral meaning, the following physical differences remain active and must be reported honestly:
+
+1. **Spatial Resolution ($2\times$ Domain Gap):**
+   - Sentinel-2 Bands 3, 4, 8 have a native ground sampling distance (GSD) of $10.0\text{ m}$.
+   - Resourcesat-2A LISS-IV has a native resolution of $5.8\text{ m}$ (resampled to $5.0\text{ m}$ in standard products).
+   - High-frequency edge and texture details in LISS-IV exceed the Nyquist frequency of the Sentinel-2 training data.
+2. **Spectral Response Functions (SRF):**
+   - Sentinel-2 B08 has a broader NIR response ($0.780 - 0.900\ \mu\text{m}$, FWHM $\sim 115\text{ nm}$) than LISS-IV Band 4 ($0.770 - 0.860\ \mu\text{m}$, FWHM $\sim 90\text{ nm}$).
+   - Water vapor absorption at $0.82\ \mu\text{m}$ affects the sensors differently.
+3. **Radiometric Level Disparity:**
+   - SEN12MS-CR contains Sentinel-2 Level-1C / Level-2A reflectance scaled by $10,000$ ($\text{DN} / 10000.0$).
+   - LISS-IV imagery is converted to Top-Of-Atmosphere (TOA) reflectance using sensor-specific calibration and geometry.
+   - Atmospheric scattering (Rayleigh and aerosol optical depth) influences TOA reflectance more strongly than surface reflectance.
+
+```powershell
+# CLI verification of parsed calibration and ESUN parameters
+.\.venv\Scripts\python.exe -m cloud_removal.preprocess --show-calibration
+```
+

@@ -11,20 +11,29 @@ import base64
 import io
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import HTMLResponse, JSONResponse, Response
 import numpy as np
-from PIL import Image
 import rasterio
-from rasterio.io import MemoryFile
 import torch
+from fastapi import (
+    APIRouter,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.responses import HTMLResponse, JSONResponse
+from PIL import Image
+from rasterio.io import MemoryFile
 
 from cloud_removal.metrics import compute_mae, compute_psnr
-from cloud_removal.models.unet import UNet
-from cloud_removal.sen12mscr import SEN12MSCRConfig, SEN12MSCRDataset
+from cloud_removal.sen12mscr import SEN12MSCRDataset
 from cloud_removal.synthetic_clouds import CloudConfig, blend_synthetic_clouds, generate_cloud_mask
 
 logger = logging.getLogger("cloud_removal.ui")
@@ -43,7 +52,9 @@ def _cleanup_cache() -> None:
         _DOWNLOAD_CACHE.pop(k, None)
     # If still too large, remove oldest
     if len(_DOWNLOAD_CACHE) > _MAX_CACHE_ENTRIES:
-        sorted_keys = sorted(_DOWNLOAD_CACHE.keys(), key=lambda k: _DOWNLOAD_CACHE[k].get("timestamp", 0))
+        sorted_keys = sorted(
+            _DOWNLOAD_CACHE.keys(), key=lambda k: _DOWNLOAD_CACHE[k].get("timestamp", 0)
+        )
         for k in sorted_keys[: len(_DOWNLOAD_CACHE) - _MAX_CACHE_ENTRIES]:
             _DOWNLOAD_CACHE.pop(k, None)
 
@@ -103,7 +114,11 @@ def parse_uploaded_image(
                             "format": "13-band Sentinel-2 L1C/L2A GeoTIFF",
                             "bands_used": "B04 (Red), B03 (Green), B02 (Blue)",
                             "radiometric_scaling": "Digital Numbers (DN) / 10000.0",
-                            "spatial_resolution": f"{res_tuple[0]:.1f}m x {res_tuple[1]:.1f}m" if res_tuple else "Unknown",
+                            "spatial_resolution": (
+                                f"{res_tuple[0]:.1f}m x {res_tuple[1]:.1f}m"
+                                if res_tuple
+                                else "Unknown"
+                            ),
                             "crs": crs_str or "Unspecified",
                         }
                     elif count == 3:
@@ -124,7 +139,11 @@ def parse_uploaded_image(
                             "format": "3-band RGB GeoTIFF",
                             "bands_used": "Bands 1 (Red), 2 (Green), 3 (Blue)",
                             "radiometric_scaling": scaling_desc,
-                            "spatial_resolution": f"{res_tuple[0]:.1f}m x {res_tuple[1]:.1f}m" if res_tuple else "Unknown",
+                            "spatial_resolution": (
+                                f"{res_tuple[0]:.1f}m x {res_tuple[1]:.1f}m"
+                                if res_tuple
+                                else "Unknown"
+                            ),
                             "crs": crs_str or "Unspecified",
                         }
                     else:
@@ -147,9 +166,8 @@ def parse_uploaded_image(
     else:
         # Standard consumer optical image (PNG, JPEG)
         try:
-            img = Image.open(io.BytesIO(file_bytes))
-            if img.mode != "RGB":
-                img = img.convert("RGB")
+            raw_img = Image.open(io.BytesIO(file_bytes))
+            img = raw_img.convert("RGB") if raw_img.mode != "RGB" else raw_img
             arr_hwc = np.array(img, dtype=np.float32)  # [H, W, 3]
             norm_arr = np.transpose(arr_hwc, (2, 0, 1)) / 255.0  # [3, H, W]
             crs_str = None
@@ -245,6 +263,7 @@ def create_geotiff_bytes(
         }
         if crs:
             import re
+
             m = re.search(r"EPSG:\d+", str(crs), re.IGNORECASE)
             if m:
                 profile["crs"] = m.group(0).upper()
@@ -386,6 +405,7 @@ def load_preset_data(preset_id: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, 
 # ============================================================================
 # HTML Template (Responsive, Lightweight, Zero-CDN Dependency)
 # ============================================================================
+
 
 def get_ui_html() -> str:
     """Return the self-contained HTML/CSS/JS document for the Cloud Removal UI."""
@@ -1228,6 +1248,7 @@ def get_ui_html() -> str:
 # FastAPI UI Router Setup
 # ============================================================================
 
+
 def setup_ui(app: FastAPI) -> None:
     """Attach web UI endpoints and interactive prediction handlers to the FastAPI application."""
 
@@ -1300,7 +1321,9 @@ def setup_ui(app: FastAPI) -> None:
             if clear_file is not None:
                 clear_content = await clear_file.read()
                 if clear_content:
-                    c_arr, _, _, _, _ = parse_uploaded_image(clear_content, clear_file.filename or "clear_image")
+                    c_arr, _, _, _, _ = parse_uploaded_image(
+                        clear_content, clear_file.filename or "clear_image"
+                    )
                     if c_arr.shape == cloudy_arr.shape:
                         clear_arr = c_arr
                         has_ground_truth = True
@@ -1352,7 +1375,6 @@ def setup_ui(app: FastAPI) -> None:
             }
 
         # Shared display contrast stretch for preview generation
-        ref_for_stretch = clear_arr if clear_arr is not None else pred_arr
         cloudy_b64, stretch_bounds = array_to_stretched_png_base64(cloudy_arr)
         pred_b64, _ = array_to_stretched_png_base64(pred_arr, stretch_bounds=stretch_bounds)
 

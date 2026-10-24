@@ -1,13 +1,13 @@
 """Tests for the interactive Web UI and associated API endpoints."""
 
 import io
-import pytest
-from fastapi.testclient import TestClient
+
 import numpy as np
-from PIL import Image
+import pytest
 import rasterio
+from fastapi.testclient import TestClient
+from PIL import Image
 from rasterio.io import MemoryFile
-import torch
 
 from cloud_removal.api import ModelManager, create_app
 from cloud_removal.models.unet import UNet
@@ -34,7 +34,9 @@ def make_png_bytes(h: int = 32, w: int = 32, color=(120, 150, 180)) -> bytes:
     return buf.getvalue()
 
 
-def make_geotiff_bytes(count: int = 3, h: int = 32, w: int = 32, dtype="float32", val: float = 0.25) -> bytes:
+def make_geotiff_bytes(
+    count: int = 3, h: int = 32, w: int = 32, dtype="float32", val: float = 0.25
+) -> bytes:
     """Create an in-memory GeoTIFF raster with optional CRS and Affine transform."""
     data = np.full((count, h, w), val, dtype=np.float32)
     with MemoryFile() as mem:
@@ -74,6 +76,7 @@ def test_client():
 # Web UI HTML & Preset Route Tests
 # ============================================================================
 
+
 def test_get_ui_html(test_client):
     """Verify that GET / and GET /ui serve the responsive HTML interface."""
     for path in ("/", "/ui"):
@@ -110,6 +113,7 @@ def test_get_presets(test_client):
 # ============================================================================
 # Interactive Inference: Presets
 # ============================================================================
+
 
 def test_predict_real_preset(test_client):
     """Verify prediction with real SEN12MS-CR benchmark sample."""
@@ -156,6 +160,7 @@ def test_predict_invalid_preset(test_client):
 # ============================================================================
 # Interactive Inference: File Uploads
 # ============================================================================
+
 
 def test_predict_upload_png_without_ground_truth(test_client):
     """Verify that uploading an optical RGB image without ground truth omits MAE/PSNR."""
@@ -259,6 +264,7 @@ def test_predict_no_input_rejected(test_client):
 # ============================================================================
 # Download Prediction Exports
 # ============================================================================
+
 
 def test_download_prediction_png_and_geotiff(test_client):
     """Verify downloading predictions in PNG and GeoTIFF formats."""

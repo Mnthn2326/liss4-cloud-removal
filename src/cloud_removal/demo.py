@@ -14,11 +14,9 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
-import torch
-
-from cloud_removal.infer import load_model_from_checkpoint, run_inference
+from cloud_removal.infer import run_inference
 
 
 def run_demo(

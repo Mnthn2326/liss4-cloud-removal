@@ -1,0 +1,44 @@
+{
+  "evaluation_timestamp_utc": "2026-10-24T12:54:30.268967+00:00",
+  "model_checkpoint": "checkpoints\\compact\\best_compact_unet.pt",
+  "checkpoint_epoch": 5,
+  "checkpoint_val_mae": 0.007215837585843272,
+  "model_architecture": {
+    "model_type": "UNet",
+    "in_channels": 3,
+    "out_channels": 3,
+    "base_channels": 16,
+    "total_trainable_params": 1942611
+  },
+  "dataset": {
+    "manifest_path": "data\\manifests\\sen12mscr_manifest.json",
+    "split": "val",
+    "sample_count": 144,
+    "total_available_in_split": 144,
+    "bands": [
+      4,
+      3,
+      2
+    ],
+    "band_names": [
+      "B04",
+      "B03",
+      "B02"
+    ],
+    "composite_mode": "rgb"
+  },
+  "metrics": {
+    "mae": 0.007215837623973095,
+    "psnr": 39.02865223302766,
+    "ssim": 0.9762080132812767,
+    "sam": 0.04413758036619579,
+    "baseline_mae": 0.07535649460567306,
+    "baseline_psnr": 25.9499226266126,
+    "baseline_ssim": 0.7879168243979239,
+    "baseline_sam": 0.09130082666666414,
+    "mae_reduction_pct": 90.42438650554146,
+    "psnr_improvement_db": 13.078729606415056,
+    "ssim_improvement": 0.18829118888335283,
+    "sam_reduction_rad": 0.04716324630046835
+  }
+}

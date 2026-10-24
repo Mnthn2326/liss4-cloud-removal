@@ -46,6 +46,3 @@ __all__ = [
     "DEFAULT_RGB_BANDS",
     "DEFAULT_RGB_NAMES",
 ]
-
-
-

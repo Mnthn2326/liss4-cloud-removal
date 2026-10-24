@@ -26,9 +26,12 @@ pillow>=9.0.0
 pytest>=9.0.0
 httpx>=0.24.0
 
-# API Service & Serving (Phase 10 & 11)
+# API Service & Serving (Phase 4 & 10)
 fastapi>=0.100.0
 uvicorn>=0.20.0
 pydantic>=2.0.0
 prometheus-client>=0.17.0
 python-multipart>=0.0.9
+
+# Cloud Storage & Dynamic Artifact Loading (Phase 4)
+boto3>=1.28.0

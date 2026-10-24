@@ -1,4 +1,12 @@
 stages:
+  acquire:
+    cmd: python -m cloud_removal.acquire_sen12mscr --output-manifest data/manifests/sen12mscr_manifest.json --verify-existing
+    deps:
+      - src/cloud_removal/acquire_sen12mscr.py
+      - data/raw/sen12mscr
+    outs:
+      - data/manifests/sen12mscr_manifest.json
+
   preprocess:
     cmd: python -m cloud_removal.preprocess --input-dir data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA --output-dir data/interim/stacked_product
     deps:
@@ -8,3 +16,32 @@ stages:
       - data/raw/RAF03JUN2026049233009500060SSANSTUC00GTDA/BAND4.tif
     outs:
       - data/interim/stacked_product
+
+  train:
+    cmd: python -m cloud_removal.train --config configs/train_compact_unet.yaml
+    deps:
+      - configs/train_compact_unet.yaml
+      - data/manifests/sen12mscr_manifest.json
+      - src/cloud_removal/train.py
+      - src/cloud_removal/sen12mscr.py
+      - src/cloud_removal/models/unet.py
+      - src/cloud_removal/metrics.py
+    params:
+      - configs/train_compact_unet.yaml:
+          - model
+          - training
+          - dataset
+    outs:
+      - checkpoints/compact/best_compact_unet.pt
+
+  evaluate:
+    cmd: python -m cloud_removal.evaluate --checkpoint checkpoints/compact/best_compact_unet.pt --config configs/train_compact_unet.yaml --manifest data/manifests/sen12mscr_manifest.json --split val --output reports/val_metrics.json
+    deps:
+      - checkpoints/compact/best_compact_unet.pt
+      - data/manifests/sen12mscr_manifest.json
+      - configs/train_compact_unet.yaml
+      - src/cloud_removal/evaluate.py
+      - src/cloud_removal/metrics.py
+    metrics:
+      - reports/val_metrics.json:
+          cache: false

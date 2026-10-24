@@ -6,14 +6,12 @@ model readiness gauges, and /metrics scraping output.
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 import numpy as np
-from prometheus_client import CollectorRegistry
 import pytest
-import torch
+from fastapi.testclient import TestClient
+from prometheus_client import CollectorRegistry
 
 from cloud_removal.api import MetricsManager, ModelManager, create_app
 from cloud_removal.models.unet import UNet
@@ -102,7 +100,9 @@ def test_inference_error_metrics_recorded(isolated_app: TestClient):
     model_mgr: ModelManager = isolated_app.app.state.model_manager
     sample = np.full((3, 32, 32), 0.25, dtype=float).tolist()
 
-    with patch.object(model_mgr, "predict", side_effect=RuntimeError("Simulated execution failure")):
+    with patch.object(
+        model_mgr, "predict", side_effect=RuntimeError("Simulated execution failure")
+    ):
         resp = isolated_app.post("/predict", json={"image": sample})
         assert resp.status_code == 500
 

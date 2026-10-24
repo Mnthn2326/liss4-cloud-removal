@@ -1,0 +1,60 @@
+# Training Configuration for False-Color Composite (FCC) SEN12MS-CR U-Net
+# Cross-Sensor Alignment with ISRO Resourcesat-2A LISS-IV:
+#   Sentinel-2 B08 (NIR, ~842nm) -> LISS-IV Band 4 (NIR, 770-860nm)
+#   Sentinel-2 B04 (Red, ~665nm) -> LISS-IV Band 3 (Red, 620-680nm)
+#   Sentinel-2 B03 (Green, ~560nm) -> LISS-IV Band 2 (Green, 520-590nm)
+
+identifier: "fcc_unet_baseline"
+seed: 42
+manifest_path: "data/raw/sen12mscr/manifest.json"
+checkpoint_dir: "checkpoints/fcc"
+checkpoint_name: "best_fcc_unet.pt"
+latest_checkpoint_name: "latest_fcc_unet.pt"
+
+mlflow:
+  experiment_name: "sen12mscr-fcc-unet"
+  tracking_uri: "mlruns"
+
+model:
+  model_type: "UNet"
+  in_channels: 3
+  out_channels: 3
+  base_channels: 16
+  bilinear: false
+  use_sigmoid: true
+  prior_reflectance: 0.107
+
+dataset:
+  name: "SEN12MS-CR-FCC"
+  composite_mode: "fcc"
+  # 1-indexed raster band numbers: 8 (NIR), 4 (Red), 3 (Green)
+  bands: [8, 4, 3]
+  band_names: ["B08", "B04", "B03"]
+  target_bands: [8, 4, 3]
+  target_band_names: ["B08", "B04", "B03"]
+  normalize: true
+  clip_max: 10000.0
+  data_range: 1.0
+  train_ratio: 0.80
+  val_ratio: 0.20
+  seed: 42
+  augment: true
+
+training:
+  epochs: 5
+  batch_size: 8
+  learning_rate: 0.0002
+  weight_decay: 0.00001
+  optimizer: "adamw"
+  loss: "compound_l1_ssim"
+  ssim_weight: 0.2
+  scheduler: "cosine"
+  t_max: 5
+  eta_min: 0.000001
+  early_stopping: true
+  patience: 5
+  min_delta: 0.0001
+  num_workers: 0
+  device: "auto"
+  max_train_samples: null
+  max_val_samples: null

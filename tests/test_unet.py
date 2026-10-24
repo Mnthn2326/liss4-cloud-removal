@@ -1,6 +1,7 @@
 """Unit tests for conventional U-Net architecture."""
 
 from pathlib import Path
+
 import pytest
 import torch
 
@@ -81,10 +82,13 @@ def test_unet_checkpoint_save_and_reload(tmp_path: Path):
     model1.eval()
 
     ckpt_file = tmp_path / "test_unet.pt"
-    torch.save({
-        "model_state_dict": model1.state_dict(),
-        "model_config": model1.get_config(),
-    }, ckpt_file)
+    torch.save(
+        {
+            "model_state_dict": model1.state_dict(),
+            "model_config": model1.get_config(),
+        },
+        ckpt_file,
+    )
 
     checkpoint = torch.load(ckpt_file)
     model2 = UNet(in_channels=3, out_channels=3, base_channels=8)
@@ -105,12 +109,15 @@ def test_infer_load_and_predict(tmp_path: Path):
 
     model = UNet(in_channels=3, out_channels=3, base_channels=8)
     ckpt_file = tmp_path / "infer_test.pt"
-    torch.save({
-        "epoch": 1,
-        "model_state_dict": model.state_dict(),
-        "model_config": model.get_config(),
-        "val_mae": 0.123,
-    }, ckpt_file)
+    torch.save(
+        {
+            "epoch": 1,
+            "model_state_dict": model.state_dict(),
+            "model_config": model.get_config(),
+            "val_mae": 0.123,
+        },
+        ckpt_file,
+    )
 
     loaded_model, ckpt = load_model_from_checkpoint(ckpt_file, device=torch.device("cpu"))
     assert ckpt["epoch"] == 1
@@ -211,7 +218,9 @@ def test_evaluate_full_split_mock(tmp_path: Path):
 
 def test_compact_unet_shape_and_parameters():
     """Compact U-Net (base_channels=16) must have ~1.94M params and output [B, 3, 256, 256]."""
-    model = UNet(in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107)
+    model = UNet(
+        in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107
+    )
     params = model.count_parameters()
     assert params == 1942611
 
@@ -228,7 +237,9 @@ def test_compact_unet_checkpoint_save_and_reload(tmp_path: Path):
     """Compact U-Net checkpoint must reload with exact parameters and identical predictions."""
     from cloud_removal.infer import load_model_from_checkpoint
 
-    model1 = UNet(in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107)
+    model1 = UNet(
+        in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107
+    )
     model1.eval()
     ckpt_file = tmp_path / "compact_test.pt"
 
@@ -255,7 +266,9 @@ def test_compact_unet_checkpoint_save_and_reload(tmp_path: Path):
 def test_compact_unet_one_step_training():
     """One training step must update weights and strictly reduce loss on a small batch."""
     torch.manual_seed(42)
-    model = UNet(in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107)
+    model = UNet(
+        in_channels=3, out_channels=3, base_channels=16, use_sigmoid=True, prior_reflectance=0.107
+    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     criterion = torch.nn.L1Loss()
 
@@ -282,6 +295,7 @@ def test_compact_unet_one_step_training():
 def test_render_comparison_figure_shared_stretch(tmp_path: Path):
     """render_comparison_figure must apply shared contrast stretch and save valid PNG."""
     import numpy as np
+
     from cloud_removal.infer import render_comparison_figure
 
     # Dark surface reflectance typical of winter Sentinel-2
@@ -314,6 +328,7 @@ def test_render_comparison_figure_shared_stretch(tmp_path: Path):
 def test_render_comparison_figure_options(tmp_path: Path):
     """render_comparison_figure must support unstretched mode and two-panel mode."""
     import numpy as np
+
     from cloud_removal.infer import render_comparison_figure
 
     cloudy = np.full((3, 32, 32), 0.20, dtype=np.float32)
@@ -382,10 +397,16 @@ def test_unet_output_quality_gate():
             x = torch.rand(batch_size, 3, size, size)
             with torch.no_grad():
                 out = model(x)
-            assert out.shape == (batch_size, 3, size, size), f"Shape mismatch for base_channels={base_ch}"
-            assert torch.all(torch.isfinite(out)), f"Output contains non-finite values for base_channels={base_ch}"
-            assert torch.all(out >= 0.0), f"Output contains negative values for base_channels={base_ch}"
+            assert out.shape == (
+                batch_size,
+                3,
+                size,
+                size,
+            ), f"Shape mismatch for base_channels={base_ch}"
+            assert torch.all(
+                torch.isfinite(out)
+            ), f"Output contains non-finite values for base_channels={base_ch}"
+            assert torch.all(
+                out >= 0.0
+            ), f"Output contains negative values for base_channels={base_ch}"
             assert torch.all(out <= 1.0), f"Output exceeds 1.0 for base_channels={base_ch}"
-
-
-

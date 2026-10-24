@@ -1,31 +1,458 @@
-"""Geospatial preprocessing pipeline for LISS-IV multi-spectral imagery.
+"""Geospatial preprocessing and radiometric calibration pipeline for LISS-IV multi-spectral imagery.
 
 Validates single-band rasters, stacks them into a unified multi-band GeoTIFF,
-generates a spatial validity mask for the collar/background, and exports a
-complete processing manifest.
+generates a spatial validity mask for the collar/background, converts raw 10-bit
+Digital Numbers (DN) to at-sensor spectral radiance and Top-Of-Atmosphere (TOA)
+reflectance, prepares false-color composite (FCC) model inputs [B4, B3, B2],
+and exports comprehensive processing manifests.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
-from pathlib import Path
+import math
 import platform
 import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import rasterio
-from rasterio.windows import Window
-
+import torch
 
 EXPECTED_BAND_FILENAMES = ("BAND2.tif", "BAND3.tif", "BAND4.tif")
 BAND_ORDER_NAMES = ("BAND2", "BAND3", "BAND4")
 
+# Authoritative mean exo-atmospheric solar spectral irradiance (ESUN) values for
+# ISRO Resourcesat-2 / Resourcesat-2A LISS-IV sensor bands (VNIR).
+# Source: Pandya et al. (2013), "At-sensor Solar Exo-atmospheric Irradiance,
+# Rayleigh Optical Thickness and Spectral parameters of RS-2 Sensors",
+# Space Applications Centre (SAC), Indian Space Research Organisation (ISRO),
+# Technical Report No. SAC/EPSA/SPSG/SR/01/2013.
+#
+# Units: mW / (cm^2 * um) (equivalent to 10 * W / (m^2 * um)).
+# When radiance is expressed in mW / (cm^2 * sr * um) and ESUN in mW / (cm^2 * um),
+# the units cancel out, yielding dimensionless reflectance.
+RESOURCESAT2_LISS4_ESUN: Dict[str, float] = {
+    "BAND2": 181.89,  # Band 2 (Green: 0.52 - 0.59 um)
+    "BAND3": 156.96,  # Band 3 (Red:   0.62 - 0.68 um)
+    "BAND4": 110.48,  # Band 4 (NIR:   0.77 - 0.86 um)
+}
+
+# Spectral band definitions and cross-sensor mapping
+LISS4_BAND_INFO: Dict[str, Dict[str, Any]] = {
+    "BAND2": {
+        "band_number": 2,
+        "name": "Green",
+        "wavelength_min_um": 0.52,
+        "wavelength_max_um": 0.59,
+        "s2_equivalent_band": "B03",
+        "native_resolution_m": 5.8,
+        "product_resolution_m": 5.0,
+    },
+    "BAND3": {
+        "band_number": 3,
+        "name": "Red",
+        "wavelength_min_um": 0.62,
+        "wavelength_max_um": 0.68,
+        "s2_equivalent_band": "B04",
+        "native_resolution_m": 5.8,
+        "product_resolution_m": 5.0,
+    },
+    "BAND4": {
+        "band_number": 4,
+        "name": "NIR",
+        "wavelength_min_um": 0.77,
+        "wavelength_max_um": 0.86,
+        "s2_equivalent_band": "B08",
+        "native_resolution_m": 5.8,
+        "product_resolution_m": 5.0,
+    },
+}
+
 
 class PreprocessingError(Exception):
     """Raised when validation or preprocessing fails."""
+
+
+def calculate_earth_sun_distance(
+    date_input: Union[str, datetime.date, datetime.datetime, int],
+) -> float:
+    """Calculate Earth-Sun distance (d) in astronomical units (AU) for a given date.
+
+    Uses standard astronomical orbital mechanics:
+        d = 1.0 - 0.01672 * cos(2 * pi * (DOY - 4) / 365.25)
+
+    Args:
+        date_input: Date as string ('DD-MMM-YYYY', 'YYYY-MM-DD', etc.), date/datetime object,
+            or integer day-of-year (1-366).
+
+    Returns:
+        Earth-Sun distance in AU (typically between 0.9832 and 1.0167 AU).
+
+    Raises:
+        ValueError: If string date cannot be parsed or DOY is out of range.
+    """
+    if isinstance(date_input, int):
+        doy = date_input
+    elif isinstance(date_input, (datetime.date, datetime.datetime)):
+        doy = date_input.timetuple().tm_yday
+    elif isinstance(date_input, str):
+        clean_str = date_input.strip()
+        parsed = None
+        for fmt in ("%d-%b-%Y", "%d-%B-%Y", "%Y-%m-%d", "%Y%m%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                parsed = datetime.datetime.strptime(clean_str, fmt)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            raise ValueError(f"Could not parse acquisition date string: '{date_input}'")
+        doy = parsed.timetuple().tm_yday
+    else:
+        raise TypeError(f"Unsupported date_input type: {type(date_input).__name__}")
+
+    if not (1 <= doy <= 366):
+        raise ValueError(f"Day of year must be in 1-366, got {doy}")
+
+    theta = 2.0 * math.pi * (doy - 4) / 365.25
+    d = 1.0 - 0.01672 * math.cos(theta)
+    return float(d)
+
+
+def parse_liss4_metadata(meta_path_or_dir: Union[str, Path]) -> Dict[str, Any]:
+    """Parse authoritative product and calibration metadata from LISS-IV product files.
+
+    Locates and parses BAND_META.txt or *.meta files within an extracted product directory
+    or from a direct file path.
+
+    Args:
+        meta_path_or_dir: Path to metadata file (e.g. BAND_META.txt) or product directory.
+
+    Returns:
+        Structured dictionary containing:
+            - sat_id: Satellite identifier ('IRS-R2A')
+            - sensor: Sensor identifier ('L4FX')
+            - sub_scene: Sub-scene ('A')
+            - date_of_pass: Acquisition date string ('03-JUN-2026')
+            - earth_sun_distance_au: Calculated Earth-Sun distance in AU
+            - sun_elevation_deg: Sun elevation angle at scene center in degrees
+            - sun_azimuth_deg: Sun azimuth angle at scene center in degrees
+            - solar_zenith_deg: Solar zenith angle in degrees (90 - sun_elevation)
+            - bits_per_pixel: Quantization bit depth (10)
+            - max_dn: Theoretical maximum digital number (1023)
+            - min_dn: Theoretical minimum digital number (0)
+            - calibration: Per-band L_min, L_max limits in mW / (cm^2 * sr * um)
+            - cloud_percent: Scene-level cloud cover percentage if present, or None
+            - metadata_file: Absolute path of the parsed metadata file
+
+    Raises:
+        PreprocessingError: If metadata file cannot be found or essential calibration
+            parameters (L_min, L_max) are missing.
+    """
+    path_obj = Path(meta_path_or_dir)
+    target_file: Optional[Path] = None
+
+    if path_obj.is_dir():
+        band_meta = path_obj / "BAND_META.txt"
+        if band_meta.is_file():
+            target_file = band_meta
+        else:
+            meta_candidates = list(path_obj.glob("*.meta"))
+            if meta_candidates:
+                target_file = meta_candidates[0]
+            else:
+                raise PreprocessingError(
+                    f"No BAND_META.txt or *.meta file found in directory {path_obj}"
+                )
+    elif path_obj.is_file():
+        target_file = path_obj
+    else:
+        raise PreprocessingError(f"Metadata path does not exist: {path_obj}")
+
+    kv: Dict[str, str] = {}
+    with open(target_file, "r", encoding="utf-8", errors="replace") as fp:
+        for line in fp:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                k, v = line.split("=", 1)
+                kv[k.strip()] = v.strip()
+
+    # Extract required satellite and sensor identity
+    sat_id = kv.get("SatID", "IRS-R2A")
+    sensor = kv.get("Sensor", "L4FX")
+    sub_scene = kv.get("SubScene", "A")
+    date_of_pass = kv.get("DateOfPass", "")
+
+    # Parse Sun geometry
+    sun_elev_raw = kv.get("SunElevationAtCenter")
+    if sun_elev_raw is None or sun_elev_raw == "-NA-":
+        raise PreprocessingError(f"Missing SunElevationAtCenter in metadata file: {target_file}")
+    sun_elevation_deg = float(sun_elev_raw)
+    solar_zenith_deg = float(90.0 - sun_elevation_deg)
+
+    sun_azim_raw = kv.get("SunAzimuthAtCenter")
+    sun_azimuth_deg = float(sun_azim_raw) if (sun_azim_raw and sun_azim_raw != "-NA-") else 0.0
+
+    # Parse Quantization bit depth
+    bits_raw = kv.get("BitsPerPixel", "10")
+    bits_per_pixel = int(bits_raw) if bits_raw.isdigit() else 10
+    max_dn = float((1 << bits_per_pixel) - 1)
+    min_dn = 0.0
+
+    # Parse per-band radiometric calibration limits (L_min, L_max)
+    calibration: Dict[str, Dict[str, Any]] = {}
+    for band_key in ("B2", "B3", "B4"):
+        out_name = f"BAND{band_key[1]}"
+        l_min_k = f"{band_key}_Lmin"
+        l_max_k = f"{band_key}_Lmax"
+
+        if l_min_k not in kv or l_max_k not in kv:
+            raise PreprocessingError(
+                f"Missing radiometric calibration parameter ({l_min_k} or {l_max_k}) in {target_file}"
+            )
+
+        l_min = float(kv[l_min_k])
+        l_max = float(kv[l_max_k])
+        if l_max <= l_min:
+            raise PreprocessingError(
+                f"Invalid calibration parameters for {band_key}: L_max ({l_max}) <= L_min ({l_min})"
+            )
+
+        calibration[out_name] = {
+            "l_min": l_min,
+            "l_max": l_max,
+            "units": "mW/(cm^2*sr*um)",
+            "dn_min": min_dn,
+            "dn_max": max_dn,
+        }
+
+    # Calculate Earth-Sun distance
+    earth_sun_distance = 1.0
+    if date_of_pass and date_of_pass != "-NA-":
+        try:
+            earth_sun_distance = calculate_earth_sun_distance(date_of_pass)
+        except ValueError:
+            earth_sun_distance = 1.0
+
+    # Parse Cloud Cover
+    cloud_raw = kv.get("CloudPercent")
+    cloud_percent: Optional[float] = None
+    if cloud_raw and cloud_raw != "-NA-":
+        try:
+            cloud_percent = float(cloud_raw)
+        except ValueError:
+            cloud_percent = None
+
+    return {
+        "sat_id": sat_id,
+        "sensor": sensor,
+        "sub_scene": sub_scene,
+        "date_of_pass": date_of_pass,
+        "earth_sun_distance_au": earth_sun_distance,
+        "sun_elevation_deg": sun_elevation_deg,
+        "sun_azimuth_deg": sun_azimuth_deg,
+        "solar_zenith_deg": solar_zenith_deg,
+        "bits_per_pixel": bits_per_pixel,
+        "min_dn": min_dn,
+        "max_dn": max_dn,
+        "calibration": calibration,
+        "cloud_percent": cloud_percent,
+        "metadata_file": str(target_file.resolve()),
+    }
+
+
+def convert_dn_to_radiance(
+    dn: Union[np.ndarray, float, int],
+    l_min: float,
+    l_max: float,
+    dn_min: float = 0.0,
+    dn_max: float = 1023.0,
+    mask_collar_zeros: bool = False,
+) -> np.ndarray:
+    """Convert raw LISS-IV Digital Numbers (DN) into spectral radiance.
+
+    Standard linear calibration formula:
+        L_lambda = L_min + ((L_max - L_min) / (DN_max - DN_min)) * (DN - DN_min)
+
+    Args:
+        dn: Raw integer Digital Number array or scalar (0-1023 for 10-bit).
+        l_min: Minimum spectral radiance at DN_min in mW / (cm^2 * sr * um).
+        l_max: Maximum spectral radiance at DN_max in mW / (cm^2 * sr * um).
+        dn_min: Lower calibration endpoint (default: 0.0).
+        dn_max: Upper calibration endpoint (default: 1023.0 for 10-bit LISS-IV).
+        mask_collar_zeros: If True, pixels with DN == 0 are preserved as 0.0 radiance
+            instead of being mapped to L_min (used for satellite collar boundary).
+
+    Returns:
+        Spectral radiance array in mW / (cm^2 * sr * um) as float32 array.
+
+    Raises:
+        ValueError: If dn_max <= dn_min or l_max <= l_min.
+    """
+    if dn_max <= dn_min:
+        raise ValueError(
+            f"Invalid DN endpoints: dn_max ({dn_max}) must be greater than dn_min ({dn_min})"
+        )
+    if l_max <= l_min:
+        raise ValueError(
+            f"Invalid radiance limits: l_max ({l_max}) must be greater than l_min ({l_min})"
+        )
+
+    dn_arr = np.asarray(dn, dtype=np.float32)
+    slope = (l_max - l_min) / (dn_max - dn_min)
+    radiance = l_min + slope * (dn_arr - dn_min)
+
+    if mask_collar_zeros:
+        radiance = np.where(dn_arr == 0.0, 0.0, radiance)
+
+    return radiance.astype(np.float32)
+
+
+def convert_radiance_to_toa_reflectance(
+    radiance: Union[np.ndarray, float],
+    esun: float,
+    solar_zenith_deg: float,
+    earth_sun_distance_au: float = 1.0,
+) -> np.ndarray:
+    """Convert spectral radiance to Top-Of-Atmosphere (TOA) reflectance.
+
+    Formula:
+        rho_TOA = (pi * L_lambda * d^2) / (ESUN_lambda * cos(theta_s))
+
+    Args:
+        radiance: Spectral radiance in mW / (cm^2 * sr * um).
+        esun: Mean exo-atmospheric solar spectral irradiance in mW / (cm^2 * um)
+            (must match unit system of radiance).
+        solar_zenith_deg: Solar zenith angle theta_s in degrees (0 <= theta_s < 90).
+        earth_sun_distance_au: Earth-Sun distance d in astronomical units (AU).
+
+    Returns:
+        Dimensionless Top-Of-Atmosphere reflectance array.
+
+    Raises:
+        ValueError: If esun <= 0, d <= 0, or solar_zenith_deg outside [0, 90).
+    """
+    if esun <= 0.0:
+        raise ValueError(f"ESUN must be strictly positive, got {esun}")
+    if earth_sun_distance_au <= 0.0:
+        raise ValueError(
+            f"Earth-Sun distance must be strictly positive, got {earth_sun_distance_au}"
+        )
+    if not (0.0 <= solar_zenith_deg < 90.0):
+        raise ValueError(f"Solar zenith angle must be in [0, 90) degrees, got {solar_zenith_deg}")
+
+    rad_arr = np.asarray(radiance, dtype=np.float32)
+    theta_rad = math.radians(solar_zenith_deg)
+    cos_theta = math.cos(theta_rad)
+
+    numerator = math.pi * rad_arr * (earth_sun_distance_au**2)
+    denominator = esun * cos_theta
+    toa_reflectance = numerator / denominator
+    return toa_reflectance.astype(np.float32)
+
+
+def prepare_liss4_fcc_model_input(
+    stacked_dn: Union[np.ndarray, torch.Tensor],
+    metadata: Dict[str, Any],
+    esun_dict: Optional[Dict[str, float]] = None,
+    normalize_for_model: bool = True,
+    device: Optional[Union[str, torch.device]] = None,
+) -> Tuple[torch.Tensor, np.ndarray]:
+    """Convert a 3-band LISS-IV DN array [BAND2, BAND3, BAND4] to FCC model input tensor [B4, B3, B2].
+
+    Follows the verified physical calibration chain:
+        Stored DN -> Calibrated Radiance -> TOA Reflectance -> Channel Permutation to FCC -> Model Normalization
+
+    Args:
+        stacked_dn: 3-band array shaped (3, H, W) in source order [BAND2 (Green), BAND3 (Red), BAND4 (NIR)].
+        metadata: Parsed metadata dictionary from parse_liss4_metadata.
+        esun_dict: Optional dictionary with 'BAND2', 'BAND3', 'BAND4' ESUN values. Defaults to
+            authoritative Resourcesat-2 LISS-IV constants from Pandya et al. (2013).
+        normalize_for_model: If True, clips reflectance to [0.0, 1.0] expected by the U-Net.
+        device: PyTorch device for output tensor.
+
+    Returns:
+        Tuple of (model_tensor, valid_mask):
+            - model_tensor: PyTorch tensor shaped (1, 3, H, W) with channels [B4 (NIR), B3 (Red), B2 (Green)].
+            - valid_mask: Boolean numpy array (H, W) where True indicates valid scene terrain.
+
+    Raises:
+        ValueError: If input does not have 3 channels or required metadata is missing.
+    """
+    if isinstance(stacked_dn, torch.Tensor):
+        dn_np = stacked_dn.detach().cpu().numpy()
+    else:
+        dn_np = np.asarray(stacked_dn)
+
+    if dn_np.ndim != 3 or dn_np.shape[0] != 3:
+        raise ValueError(f"Expected 3-band array shaped (3, H, W), got shape {dn_np.shape}")
+
+    solar_zenith = float(metadata["solar_zenith_deg"])
+    d_au = float(metadata.get("earth_sun_distance_au", 1.0))
+    calib = metadata["calibration"]
+
+    active_esun = esun_dict if esun_dict is not None else RESOURCESAT2_LISS4_ESUN
+    for b_name in ("BAND2", "BAND3", "BAND4"):
+        if b_name not in active_esun:
+            raise ValueError(f"Missing ESUN value for band '{b_name}' in provided ESUN dictionary")
+
+    # Extract source bands
+    b2_dn = dn_np[0]  # Green
+    b3_dn = dn_np[1]  # Red
+    b4_dn = dn_np[2]  # NIR
+
+    # Identify spatial validity collar: valid if at least one band is non-zero
+    valid_mask = (b2_dn != 0) | (b3_dn != 0) | (b4_dn != 0)
+
+    # Convert each band from DN -> Radiance -> TOA Reflectance
+    # Band 2 (Green)
+    rad_b2 = convert_dn_to_radiance(
+        b2_dn,
+        l_min=calib["BAND2"]["l_min"],
+        l_max=calib["BAND2"]["l_max"],
+        mask_collar_zeros=True,
+    )
+    refl_b2 = convert_radiance_to_toa_reflectance(rad_b2, active_esun["BAND2"], solar_zenith, d_au)
+
+    # Band 3 (Red)
+    rad_b3 = convert_dn_to_radiance(
+        b3_dn,
+        l_min=calib["BAND3"]["l_min"],
+        l_max=calib["BAND3"]["l_max"],
+        mask_collar_zeros=True,
+    )
+    refl_b3 = convert_radiance_to_toa_reflectance(rad_b3, active_esun["BAND3"], solar_zenith, d_au)
+
+    # Band 4 (NIR)
+    rad_b4 = convert_dn_to_radiance(
+        b4_dn,
+        l_min=calib["BAND4"]["l_min"],
+        l_max=calib["BAND4"]["l_max"],
+        mask_collar_zeros=True,
+    )
+    refl_b4 = convert_radiance_to_toa_reflectance(rad_b4, active_esun["BAND4"], solar_zenith, d_au)
+
+    # Reorder channels to FCC: [B4 (NIR), B3 (Red), B2 (Green)]
+    # This precisely matches Sentinel-2 [B08 (NIR), B04 (Red), B03 (Green)]
+    fcc_stack = np.stack([refl_b4, refl_b3, refl_b2], axis=0)
+
+    # Apply collar masking: collar pixels are set to 0.0
+    fcc_stack[:, ~valid_mask] = 0.0
+
+    if normalize_for_model:
+        fcc_stack = np.clip(fcc_stack, 0.0, 1.0)
+
+    tensor = torch.from_numpy(fcc_stack).unsqueeze(0).to(dtype=torch.float32)
+    if device is not None:
+        tensor = tensor.to(device)
+
+    return tensor, valid_mask
 
 
 def validate_inputs(
@@ -454,8 +881,48 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         default="deflate",
         help="Lossless compression algorithm (default: deflate)",
     )
+    parser.add_argument(
+        "--show-calibration",
+        action="store_true",
+        help="Parse and display radiometric calibration metadata and ESUN parameters, then exit",
+    )
 
     args = parser.parse_args(argv)
+
+    if args.show_calibration:
+        try:
+            meta = parse_liss4_metadata(args.input_dir)
+            print("==================================================")
+            print("LISS-IV Product Metadata & Radiometric Calibration")
+            print("==================================================")
+            print(
+                f"Satellite / Sensor: {meta['sat_id']} / {meta['sensor']} (Subscene {meta['sub_scene']})"
+            )
+            print(
+                f"Acquisition Date:   {meta['date_of_pass']} (Earth-Sun Distance: {meta['earth_sun_distance_au']:.4f} AU)"
+            )
+            print(
+                f"Sun Geometry:       Elevation {meta['sun_elevation_deg']:.2f} deg | Zenith {meta['solar_zenith_deg']:.2f} deg | Azimuth {meta['sun_azimuth_deg']:.2f} deg"
+            )
+            print(
+                f"Bit Depth:          {meta['bits_per_pixel']}-bit (DN range: {meta['min_dn']:.0f} - {meta['max_dn']:.0f})"
+            )
+            print(
+                f"Cloud Cover:        {meta['cloud_percent']}%"
+                if meta["cloud_percent"] is not None
+                else "Cloud Cover:        Not available (-NA-)"
+            )
+            print("\nRadiometric Limits (L_min, L_max in mW / cm^2 / sr / um):")
+            for b_name, c_info in meta["calibration"].items():
+                esun_val = RESOURCESAT2_LISS4_ESUN.get(b_name, 0.0)
+                print(
+                    f"  {b_name}: L_min = {c_info['l_min']:7.2f} | L_max = {c_info['l_max']:7.2f} | ESUN = {esun_val:6.2f} mW/(cm^2*um)"
+                )
+            print("==================================================")
+            return 0
+        except PreprocessingError as err:
+            print(f"Error parsing calibration metadata: {err}", file=sys.stderr)
+            return 1
 
     try:
         print(f"Starting preprocessing for input: {args.input_dir}")
@@ -466,10 +933,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             tile_size=args.tile_size,
             compression=args.compression,
         )
-        print(f"Preprocessing completed successfully.")
-        print(f"  Stacked raster: {result['stacked_path']} ({result['stats']['stacked_size_bytes']:,} bytes)")
-        print(f"  Validity mask:  {result['mask_path']} ({result['stats']['mask_size_bytes']:,} bytes)")
-        print(f"  Valid pixels:   {result['stats']['valid_pixels']:,} / {result['stats']['total_pixels']:,} ({result['stats']['valid_fraction']*100:.2f}%)")
+        print("Preprocessing completed successfully.")
+        print(
+            f"  Stacked raster: {result['stacked_path']} ({result['stats']['stacked_size_bytes']:,} bytes)"
+        )
+        print(
+            f"  Validity mask:  {result['mask_path']} ({result['stats']['mask_size_bytes']:,} bytes)"
+        )
+        print(
+            f"  Valid pixels:   {result['stats']['valid_pixels']:,} / {result['stats']['total_pixels']:,} ({result['stats']['valid_fraction']*100:.2f}%)"
+        )
         print(f"  Manifest:       {result['manifest_path']}")
         return 0
     except PreprocessingError as err:

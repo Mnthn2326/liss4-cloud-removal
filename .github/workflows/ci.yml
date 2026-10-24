@@ -1,11 +1,11 @@
 # Continuous Integration for liss4-cloud-removal
 #
 # Runs deterministic, self-contained unit and integration tests on push and pull requests.
-# Tests requiring local datasets, trained checkpoints, or DVC remotes are guarded
-# with pytest.skip() and will skip gracefully in a clean CI environment.
+# Performs code quality checks with Ruff, formatting verification with Black,
+# static type analysis with Mypy, and test suite execution with pytest-cov.
 #
 # Constraints & Principles:
-#   - Does NOT retrain models or acquire satellite datasets.
+#   - Does NOT retrain models or acquire satellite datasets in CI.
 #   - Does NOT push to DVC remotes or expose credentials/secrets.
 #   - Uses CPU-only PyTorch wheels to ensure fast, deterministic CI execution.
 #   - Single source of truth for dependencies via pyproject.toml / requirements.txt.
@@ -19,8 +19,8 @@ name: CI
     branches: ["**"]
 
 jobs:
-  test:
-    name: Test Suite (Python ${{ matrix.python-version }})
+  quality-and-tests:
+    name: Code Quality & Test Suite (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -45,7 +45,7 @@ jobs:
           # Pre-install CPU-only PyTorch to avoid downloading heavy CUDA wheels
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-      - name: Install project and dependencies
+      - name: Install project and dev dependencies
         run: |
           pip install -e ".[dev]"
 
@@ -56,6 +56,26 @@ jobs:
           python -c "import rasterio; print('Rasterio:', rasterio.__version__)"
           python -c "import mlflow; print('MLflow:', mlflow.__version__)"
 
-      - name: Run test suite
+      - name: Lint check with Ruff
         run: |
-          python -m pytest tests/ -v --tb=short
+          ruff check .
+
+      - name: Code format check with Black
+        run: |
+          black --check .
+
+      - name: Type safety check with Mypy
+        run: |
+          mypy src/
+
+      - name: Run test suite with coverage
+        run: |
+          pytest --cov=src --cov-report=xml --cov-report=term -v --tb=short
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-coverage-report
+          path: coverage.xml
+          retention-days: 14

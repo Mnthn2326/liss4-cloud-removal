@@ -1,0 +1,60 @@
+# Pix2Pix Conditional GAN (cGAN) Training Configuration (RGB Baseline)
+# Generator: 4-stage U-Net
+# Discriminator: 70x70 PatchGAN
+
+identifier: "cgan_pix2pix_baseline"
+seed: 42
+manifest_path: "data/raw/sen12mscr/manifest.json"
+checkpoint_dir: "checkpoints/cgan"
+checkpoint_name: "best_cgan_generator.pt"
+latest_checkpoint_name: "latest_cgan_generator.pt"
+checkpoint_d_name: "best_cgan_discriminator.pt"
+latest_checkpoint_d_name: "latest_cgan_discriminator.pt"
+
+mlflow:
+  experiment_name: "sen12mscr-pix2pix-cgan"
+  tracking_uri: "mlruns"
+
+model:
+  model_type: "UNet"
+  in_channels: 3
+  out_channels: 3
+  base_channels: 32
+  bilinear: false
+  use_sigmoid: true
+  prior_reflectance: null
+
+discriminator:
+  model_type: "PatchGANDiscriminator"
+  ndf: 64
+  n_layers: 3
+  norm_layer: "batch"
+
+dataset:
+  name: "SEN12MS-CR-RGB"
+  composite_mode: "rgb"
+  bands: [4, 3, 2]
+  band_names: ["B04", "B03", "B02"]
+  normalize: true
+  clip_max: 10000.0
+  train_ratio: 0.80
+  val_ratio: 0.20
+  seed: 42
+  augment: true
+
+training:
+  epochs: 10
+  batch_size: 4
+  learning_rate_g: 0.0002
+  learning_rate_d: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+  lambda_l1: 100.0
+  use_lsgan: false
+  early_stopping: true
+  patience: 5
+  min_delta: 0.0001
+  num_workers: 0
+  device: "auto"
+  max_train_samples: null
+  max_val_samples: null

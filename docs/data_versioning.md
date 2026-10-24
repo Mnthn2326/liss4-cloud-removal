@@ -128,12 +128,130 @@ To verify dataset restorability without altering the primary workspace:
 
 ---
 
-## 8. Known Limitations of Local Remote
+## 8. Multi-Cloud Remote Storage Architecture & Authentication
 
-- **Single-Machine Bound**: The local remote (`E:\dvc-storage\liss4-cloud-removal`) is accessible only from this workstation.
-- **Collaborative Work / Cloud GPU Execution**: When training models in cloud environments (e.g., Google Colab or GCP Vertex AI), an external cloud bucket remote (e.g., Google Cloud Storage or AWS S3) must be configured:
-  ```powershell
-  dvc remote add gcs_remote gs://<bucket-name>/liss4-cloud-removal
-  dvc remote default gcs_remote
-  ```
-- **Read-Only Hardlink Protection**: Because DVC links cache files with hardlinks, modifying tracked files in-place is prevented by file permissions to protect cache integrity.
+### 8.1 Zero-Secrets Architecture
+To support reproducible collaboration across research teams and automated CI/CD runners without risking credential leakage:
+- **No secrets in repository**: Credentials, access keys, tokens, and storage passwords are **never** committed to Git, `.dvc/config`, or tracked files.
+- **Environment-driven authentication**: Cloud authentication relies strictly on standard cloud provider environment variables or instance metadata services (IAM roles, Workload Identity, Managed Identities).
+- **Endpoint modularity**: Storage endpoints (S3 bucket URLs, GCS buckets, Azure containers) are declared in `.dvc/config` as uncredentialed endpoint templates.
+
+### 8.2 Supported Cloud Providers & Credentials Setup
+
+#### 1. Amazon Web Services (AWS S3)
+Configured remote: `s3_remote` (`s3://liss4-cloud-removal-dvc`)
+```powershell
+# Set standard AWS credentials in environment
+$env:AWS_ACCESS_KEY_ID = "YOUR_AWS_ACCESS_KEY_ID"
+$env:AWS_SECRET_ACCESS_KEY = "YOUR_AWS_SECRET_ACCESS_KEY"
+$env:AWS_DEFAULT_REGION = "ap-south-1"
+
+# Switch default remote or push directly
+.\.venv\Scripts\dvc.exe push -r s3_remote
+```
+
+#### 2. MinIO (S3-Compatible Self-Hosted Object Storage)
+Configured remote: `minio_remote` (`s3://liss4-dvc-bucket` with `endpointurl = http://localhost:9000`)
+```powershell
+$env:AWS_ACCESS_KEY_ID = "minioadmin"
+$env:AWS_SECRET_ACCESS_KEY = "minioadmin"
+$env:AWS_ENDPOINT_URL = "http://localhost:9000"
+
+.\.venv\Scripts\dvc.exe push -r minio_remote
+```
+
+#### 3. Google Cloud Storage (GCS)
+Configured remote: `gcs_remote` (`gs://liss4-cloud-removal-dvc`)
+```powershell
+# Service account key path
+$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\path\to\service-account-key.json"
+
+.\.venv\Scripts\dvc.exe push -r gcs_remote
+```
+
+#### 4. Microsoft Azure Blob Storage
+Configured remote: `azure_remote` (`azure://liss4-cloud-removal-dvc`)
+```powershell
+$env:AZURE_STORAGE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=core.windows.net"
+
+.\.venv\Scripts\dvc.exe push -r azure_remote
+```
+
+### 8.3 Remote Verification & Status Monitoring
+To audit synchronization between local cache and configured remotes:
+```powershell
+# Check status against active default remote (local_storage)
+.\.venv\Scripts\dvc.exe status -c
+
+# Check status against specific cloud remote
+.\.venv\Scripts\dvc.exe status -r s3_remote
+
+# Test push and pull operations
+.\.venv\Scripts\dvc.exe push -r local_storage
+.\.venv\Scripts\dvc.exe pull -r local_storage
+```
+
+---
+
+## 9. Phase 2: Authentic Cloud-Free LISS-IV Reference Scene Acquisition
+
+### 9.1 Objective & Criteria
+To evaluate cloud-removal transfer performance on authentic Resourcesat-2A LISS-IV imagery without synthetic cloud simulation, a genuine cloud-free reference scene must be acquired from ISRO's official Bhoonidhi data distribution portal.
+
+| Parameter | Selection Specification |
+| :--- | :--- |
+| **Data Source** | ISRO Bhoonidhi Portal ([https://bhoonidhi.nrsc.gov.in/](https://bhoonidhi.nrsc.gov.in/)) |
+| **Satellite** | Resourcesat-2A (`IRS-R2A`) |
+| **Sensor** | LISS-IV (`L4FX`, Mono / Multispectral mode) |
+| **Scene Footprint** | Path `095`, Row `060`, Subscene `A` (Western Maharashtra / Pune corridor) |
+| **Spatial Overlap** | Co-located with cloudy scene `RAF03JUN2026049233009500060SSANSTUC00GTDA` |
+| **Cloud Cover Requirement** | $\le 2.0\%$ at scene and evaluation patch level |
+| **Optimal Temporal Window** | Post-monsoon / Winter dry season (November 2025 – February 2026) |
+| **Processing Level** | Standard Georeferenced (`STD`, Map projection UTM Zone 43N, WGS 84) |
+| **Required Files** | `BAND2.tif` (Green), `BAND3.tif` (Red), `BAND4.tif` (NIR), `BAND_META.txt`, `.meta` |
+
+### 9.2 Official Acquisition Protocol (Bhoonidhi)
+1. **User Authentication**: Log in to [https://bhoonidhi.nrsc.gov.in/](https://bhoonidhi.nrsc.gov.in/) with registered user credentials. Access to raw Resourcesat-2A standard products requires manual OTP authentication; direct automated downloading without user session cookies is prevented by ISRO security policies.
+2. **Search Query**:
+   - Platform: `RESOURCESAT-2A`
+   - Sensor: `LISS-4`
+   - Path / Row: `095` / `060`
+   - Subscene: `A`
+   - Date Range: `01-NOV-2025` to `28-FEB-2026`
+   - Cloud Cover Filter: `0 - 2%`
+3. **Cart & Download**: Add the qualified clear product to the cart, submit the order request, and download the full ZIP product archive to the local workstation.
+
+### 9.3 Ingestion & Verification Workflow
+Once downloaded, run the verified automated ingestion utility:
+```powershell
+# Validate and ingest downloaded scene ZIP into data/raw/
+.\.venv\Scripts\python.exe -m cloud_removal.ingest_liss4 --source path/to/downloaded_scene.zip --target-dir data/raw --max-cloud-percent 2.0
+```
+
+The tool:
+- Confirms `SatID` is `IRS-R2A` and `Sensor` is `L4FX`.
+- Validates that `CloudPercent` $\le 2.0\%$.
+- Confirms all 3 spectral bands (`BAND2.tif`, `BAND3.tif`, `BAND4.tif`) exist with identical 10-bit integer format and UTM Zone 43N georeferencing.
+- Computes SHA-256 hashes for all files and generates an authentic manifest.
+- Outputs exact DVC tracking commands.
+
+### 9.4 DVC Versioning Commands
+Track the ingested scene following established repository standards:
+```powershell
+# 1. Add product to DVC tracking
+.\.venv\Scripts\dvc.exe add data/raw/<OTS_PRODUCT_ID>
+
+# 2. Stage DVC pointer and manifest in Git
+git add data/raw/<OTS_PRODUCT_ID>.dvc data/raw/<OTS_PRODUCT_ID>/manifest.json
+
+# 3. Commit metadata to Git
+git commit -m "feat(data): version authentic clear Resourcesat-2A LISS-IV reference scene"
+
+# 4. Push raster blobs to local storage remote
+.\.venv\Scripts\dvc.exe push data/raw/<OTS_PRODUCT_ID>.dvc
+```
+
+### 9.5 Current Acquisition Status
+- **Status:** **Blocked by missing external authenticated data from Bhoonidhi.**
+- **Rationale:** Downloading authentic Level-1/Level-2 satellite scenes from Bhoonidhi requires an active authenticated session and OTP authorization from a registered Indian citizen/researcher account. No synthetic or substitute data has been fabricated. The ingestion pipeline (`src/cloud_removal/ingest_liss4.py`) is fully implemented, tested, and ready for immediate ingestion once the archive is placed on disk.
+

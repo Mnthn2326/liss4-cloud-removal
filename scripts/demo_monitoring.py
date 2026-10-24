@@ -15,6 +15,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+
 import numpy as np
 
 
@@ -25,8 +26,8 @@ def run_monitoring_demo(host: str = "localhost", port: int = 8000, num_requests:
     print("=" * 70)
     print(f"Target API Service:  {base_url}")
     print(f"Prometheus Endpoint: {base_url}/metrics")
-    print(f"Grafana Dashboard:   http://localhost:3001 (admin / admin)")
-    print(f"Prometheus Server:   http://localhost:9090")
+    print("Grafana Dashboard:   http://localhost:3001 (admin / admin)")
+    print("Prometheus Server:   http://localhost:9090")
     print("-" * 70)
 
     # 1. Health Probe

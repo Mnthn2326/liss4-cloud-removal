@@ -1,10 +1,12 @@
 """Tests for raster inspection utility."""
 
 from pathlib import Path
+
 import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
+
 from cloud_removal.inspect import inspect_raster, read_raster_window
 
 
@@ -75,7 +77,6 @@ def test_inspect_raster_ignore_zero(synthetic_raster_fixture: Path):
     band2_stats = result["band_statistics"][0]
     assert band2_stats["valid_pixels"] == 64 * 63
     assert band2_stats["min"] >= 100
-
 
 
 def test_read_raster_window_valid(synthetic_raster_fixture: Path):

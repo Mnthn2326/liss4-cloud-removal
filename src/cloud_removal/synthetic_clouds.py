@@ -8,7 +8,7 @@ spatially-varying transmission and cloud radiance scattering.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -88,7 +88,9 @@ def generate_cloud_mask(
         ValueError: If dimensions are non-positive or coverage is outside [0.0, 1.0].
     """
     if height <= 0 or width <= 0:
-        raise ValueError(f"Dimensions must be strictly positive, received height={height}, width={width}")
+        raise ValueError(
+            f"Dimensions must be strictly positive, received height={height}, width={width}"
+        )
 
     cfg = config if config is not None else CloudConfig()
     effective_seed = seed if seed is not None else cfg.seed
@@ -186,12 +188,18 @@ def blend_synthetic_clouds(
         clear_3d = clear_image[np.newaxis, :, :]  # (1, H, W)
         is_channel_first = True
     elif clear_image.ndim == 3:
-        if clear_image.shape[1] == cloud_mask.shape[0] and clear_image.shape[2] == cloud_mask.shape[1]:
+        if (
+            clear_image.shape[1] == cloud_mask.shape[0]
+            and clear_image.shape[2] == cloud_mask.shape[1]
+        ):
             # (C, H, W)
             is_channel_first = True
             img_h, img_w = clear_image.shape[1], clear_image.shape[2]
             clear_3d = clear_image
-        elif clear_image.shape[0] == cloud_mask.shape[0] and clear_image.shape[1] == cloud_mask.shape[1]:
+        elif (
+            clear_image.shape[0] == cloud_mask.shape[0]
+            and clear_image.shape[1] == cloud_mask.shape[1]
+        ):
             # (H, W, C)
             is_channel_first = False
             img_h, img_w = clear_image.shape[0], clear_image.shape[1]
@@ -227,7 +235,9 @@ def blend_synthetic_clouds(
     cloud_radiance = np.zeros((num_channels, img_h, img_w), dtype=np.float32)
     for c in range(num_channels):
         rad_noise = rng.standard_normal((img_h, img_w))
-        rad_smooth = gaussian_filter(rad_noise, sigma=max(2.0, min(img_h, img_w) * 0.1), mode="reflect")
+        rad_smooth = gaussian_filter(
+            rad_noise, sigma=max(2.0, min(img_h, img_w) * 0.1), mode="reflect"
+        )
         rad_norm = (rad_smooth - rad_smooth.min()) / (rad_smooth.max() - rad_smooth.min() + 1e-7)
 
         dn_span = float(cfg.cloud_dn_max - cfg.cloud_dn_min)
@@ -236,7 +246,9 @@ def blend_synthetic_clouds(
     # Apply transmission and scattering blending:
     # cloudy = transmission * clear + alpha * cloud_radiance
     clear_float = clear_3d.astype(np.float32)
-    cloudy_float = transmission[np.newaxis, :, :] * clear_float + alpha[np.newaxis, :, :] * cloud_radiance
+    cloudy_float = (
+        transmission[np.newaxis, :, :] * clear_float + alpha[np.newaxis, :, :] * cloud_radiance
+    )
 
     # Clip within valid range and cast back to original data type
     clipped = np.clip(cloudy_float, min_val, max_val)
@@ -304,5 +316,7 @@ class SyntheticCloudGenerator:
             raise ValueError(f"clear_image must have 2 or 3 dims, got {clear_image.ndim}")
 
         mask = self.generate_mask(height=h, width=w, coverage=coverage, seed=seed)
-        cloudy = blend_synthetic_clouds(clear_image=clear_image, cloud_mask=mask, config=self.config, seed=seed)
+        cloudy = blend_synthetic_clouds(
+            clear_image=clear_image, cloud_mask=mask, config=self.config, seed=seed
+        )
         return cloudy, mask
