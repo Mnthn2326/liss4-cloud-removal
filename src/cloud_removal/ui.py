@@ -1114,7 +1114,9 @@ def get_ui_html() -> str:
       let activeModelLabel = "U-Net";
       if (data.checkpoint) {
         const chk = data.checkpoint.toLowerCase();
-        if (chk.includes("cgan") && chk.includes("fcc")) {
+        if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
+          activeModelLabel = "U-Net v2 (41.09 dB - Record)";
+        } else if (chk.includes("cgan") && chk.includes("fcc")) {
           activeModelLabel = "LISS-IV FCC cGAN";
         } else if (chk.includes("cgan")) {
           activeModelLabel = "Pix2Pix cGAN";
@@ -1282,7 +1284,9 @@ def setup_ui(app: FastAPI) -> None:
         badge_title = "Model: Compact U-Net"
         if model_manager and model_manager.checkpoint_path:
             p_str = str(model_manager.checkpoint_path).lower()
-            if "cgan" in p_str and "fcc" in p_str:
+            if "best_compact_unet_v2" in p_str or "v2" in p_str:
+                badge_title = "Model: U-Net v2 (41.09 dB - Record)"
+            elif "cgan" in p_str and "fcc" in p_str:
                 badge_title = "Model: LISS-IV FCC cGAN"
             elif "cgan" in p_str:
                 badge_title = "Model: Pix2Pix cGAN"
