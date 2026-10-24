@@ -626,10 +626,11 @@ def train_model(
         print(f"MLflow Run ID: {run.info.run_id}")
         print("==================================================")
 
-        # Load best checkpoint weights for final logging and registration
+        # Load best checkpoint weights for final logging and registration (use CPU for safe export)
+        model = model.to("cpu")
         if best_checkpoint_path.is_file():
             try:
-                best_state = torch.load(best_checkpoint_path, map_location=device)
+                best_state = torch.load(best_checkpoint_path, map_location="cpu")
                 if isinstance(best_state, dict) and "model_state_dict" in best_state:
                     model.load_state_dict(best_state["model_state_dict"])
             except Exception as load_exc:
@@ -642,7 +643,7 @@ def train_model(
         in_c = model.in_channels
         input_example = np.random.uniform(0.0, 1.0, size=(1, in_c, 256, 256)).astype(np.float32)
         with torch.no_grad():
-            output_example = model(torch.from_numpy(input_example).to(device)).cpu().numpy()
+            output_example = model(torch.from_numpy(input_example)).numpy()
         model_signature = infer_signature(input_example, output_example)
 
         model_metadata = {
@@ -663,37 +664,40 @@ def train_model(
 
         model_info = None
         registered_successfully = False
-        if registered_model_name:
-            try:
+        try:
+            if registered_model_name:
+                try:
+                    model_info = mlflow.pytorch.log_model(
+                        pytorch_model=model,
+                        name="model",
+                        signature=model_signature,
+                        input_example=input_example,
+                        registered_model_name=str(registered_model_name),
+                        metadata=model_metadata,
+                    )
+                    registered_successfully = True
+                    print(f"Successfully registered model '{registered_model_name}'.")
+                except Exception as reg_exc:
+                    print(
+                        f"Warning: Model registration with name '{registered_model_name}' failed ({reg_exc}). Logging model artifact without registration."
+                    )
+                    model_info = mlflow.pytorch.log_model(
+                        pytorch_model=model,
+                        name="model",
+                        signature=model_signature,
+                        input_example=input_example,
+                        metadata=model_metadata,
+                    )
+            else:
                 model_info = mlflow.pytorch.log_model(
                     pytorch_model=model,
                     name="model",
                     signature=model_signature,
                     input_example=input_example,
-                    registered_model_name=str(registered_model_name),
                     metadata=model_metadata,
                 )
-                registered_successfully = True
-                print(f"Successfully registered model '{registered_model_name}'.")
-            except Exception as reg_exc:
-                print(
-                    f"Warning: Model registration with name '{registered_model_name}' failed ({reg_exc}). Logging model artifact without registration."
-                )
-                model_info = mlflow.pytorch.log_model(
-                    pytorch_model=model,
-                    name="model",
-                    signature=model_signature,
-                    input_example=input_example,
-                    metadata=model_metadata,
-                )
-        else:
-            model_info = mlflow.pytorch.log_model(
-                pytorch_model=model,
-                name="model",
-                signature=model_signature,
-                input_example=input_example,
-                metadata=model_metadata,
-            )
+        except Exception as export_exc:
+            print(f"Warning: MLflow PyTorch model package export skipped ({export_exc}). The raw checkpoint artifact remains intact.")
 
         # Handle alias / stage promotion if model registration succeeded
         if registered_successfully and registered_model_name and model_info is not None:

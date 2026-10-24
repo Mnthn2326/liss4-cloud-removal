@@ -436,10 +436,11 @@ def train_cgan_model(
         print(f"MLflow Run ID: {run.info.run_id}")
         print("==================================================")
 
-        # Log best generator model artifact with MLflow signature
+        # Log best generator model artifact with MLflow signature (use CPU for safe export)
+        generator = generator.to("cpu")
         if best_g_path.is_file():
             try:
-                best_state = torch.load(best_g_path, map_location=device)
+                best_state = torch.load(best_g_path, map_location="cpu")
                 if isinstance(best_state, dict) and "model_state_dict" in best_state:
                     generator.load_state_dict(best_state["model_state_dict"])
             except Exception as load_exc:
@@ -449,7 +450,7 @@ def train_cgan_model(
         in_c = generator.in_channels
         input_example = np.random.uniform(0.0, 1.0, size=(1, in_c, 256, 256)).astype(np.float32)
         with torch.no_grad():
-            output_example = generator(torch.from_numpy(input_example).to(device)).cpu().numpy()
+            output_example = generator(torch.from_numpy(input_example)).numpy()
         model_signature = infer_signature(input_example, output_example)
 
         try:
@@ -461,6 +462,12 @@ def train_cgan_model(
             )
         except Exception as mlflow_exc:
             print(f"Warning: MLflow model logging failed: {mlflow_exc}")
+
+        # Always log best checkpoint files to MLflow artifact store
+        if best_g_path.is_file():
+            mlflow.log_artifact(str(best_g_path), artifact_path="checkpoints")
+        if best_d_path.is_file():
+            mlflow.log_artifact(str(best_d_path), artifact_path="checkpoints")
 
     return {
         "best_val_mae": best_val_mae,
