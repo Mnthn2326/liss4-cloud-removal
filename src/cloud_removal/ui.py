@@ -12,6 +12,7 @@ import io
 import logging
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -1109,11 +1110,30 @@ def get_ui_html() -> str:
       updateSplit(50);
       document.getElementById("sliderRange").value = 50;
 
+      // Dynamic Model Title Resolution
+      let activeModelLabel = "U-Net";
+      if (data.checkpoint) {
+        const chk = data.checkpoint.toLowerCase();
+        if (chk.includes("cgan") && chk.includes("fcc")) {
+          activeModelLabel = "LISS-IV FCC cGAN";
+        } else if (chk.includes("cgan")) {
+          activeModelLabel = "Pix2Pix cGAN";
+        } else if (chk.includes("best_unet")) {
+          activeModelLabel = "Full U-Net (7.76M)";
+        } else if (chk.includes("fcc")) {
+          activeModelLabel = "FCC U-Net";
+        } else if (chk.includes("compact")) {
+          activeModelLabel = "Compact U-Net";
+        }
+        const sBadge = document.getElementById("serviceBadge");
+        if (sBadge) sBadge.innerText = `Model: ${activeModelLabel}`;
+      }
+
       // Images in Side-by-Side Panels
       document.getElementById("panelCloudy").src = data.cloudy_preview;
       document.getElementById("panelPred").src = data.pred_preview;
       document.getElementById("subCloudy").innerText = `${data.input_shape[1]}x${data.input_shape[2]} px`;
-      document.getElementById("subPred").innerText = `U-Net Reconstruction`;
+      document.getElementById("subPred").innerText = `${activeModelLabel} Reconstruction`;
 
       if (data.clear_preview) {
         document.getElementById("boxClear").style.display = "block";
@@ -1256,9 +1276,30 @@ def setup_ui(app: FastAPI) -> None:
 
     @router.get("/", response_class=HTMLResponse, summary="Interactive Web UI")
     @router.get("/ui", response_class=HTMLResponse, summary="Interactive Web UI")
-    async def get_ui():
-        """Serve the self-contained, responsive Cloud Removal Web UI."""
-        return HTMLResponse(content=get_ui_html(), status_code=200)
+    async def get_ui(request: Request):
+        """Serve the self-contained, responsive Cloud Removal Web UI with dynamic active model badge."""
+        model_manager = getattr(request.app.state, "model_manager", None)
+        badge_title = "Model: Compact U-Net"
+        if model_manager and model_manager.checkpoint_path:
+            p_str = str(model_manager.checkpoint_path).lower()
+            if "cgan" in p_str and "fcc" in p_str:
+                badge_title = "Model: LISS-IV FCC cGAN"
+            elif "cgan" in p_str:
+                badge_title = "Model: Pix2Pix cGAN"
+            elif "best_unet" in p_str:
+                badge_title = "Model: Full U-Net (7.76M)"
+            elif "fcc" in p_str:
+                badge_title = "Model: FCC U-Net"
+            elif "compact" in p_str:
+                badge_title = "Model: Compact U-Net"
+            else:
+                badge_title = f"Model: {Path(model_manager.checkpoint_path).name}"
+
+        html_content = get_ui_html().replace(
+            '<span id="serviceBadge" class="badge badge-primary">Model: Compact U-Net</span>',
+            f'<span id="serviceBadge" class="badge badge-primary">{badge_title}</span>',
+        )
+        return HTMLResponse(content=html_content, status_code=200)
 
     @router.get("/api/ui/presets", summary="Get Preset Test Samples")
     async def get_presets():
