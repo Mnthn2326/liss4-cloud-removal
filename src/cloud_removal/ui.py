@@ -289,34 +289,14 @@ def get_available_models() -> List[Dict[str, Any]]:
     """Return available trained model checkpoints in the repository."""
     candidates = [
         (
-            "checkpoints/best_unet.pt",
-            "Full U-Net (42.13 dB - Best Model)",
-            "Standard U-Net (7.76M params, compound L1+SSIM, 42.13 dB val PSNR at epoch 138).",
-        ),
-        (
-            "checkpoints/best_compact_unet_v2.pt",
-            "Compact U-Net v2 (41.09 dB - Record)",
-            "Lightweight compact U-Net (1.94M params, cosine annealing schedule, 41.09 dB val PSNR).",
-        ),
-        (
             "checkpoints/rice2/best_rice2_compact_unet.pt",
-            "RICE2 Compact U-Net (0.048 Val MAE)",
-            "Lightweight U-Net trained on RICE2 paired benchmark (1.94M params, 0.048 val MAE).",
+            "Compact U-Net (Production Baseline - RICE2)",
+            "Official production baseline (1.94M params, compound L1+SSIM, 25.12 dB test PSNR).",
         ),
         (
-            "checkpoints/compact/best_compact_unet.pt",
-            "Compact U-Net (Epoch 5 Baseline)",
-            "Early compact baseline model (1.94M params).",
-        ),
-        (
-            "checkpoints/cgan/best_cgan_generator.pt",
-            "Pix2Pix cGAN Generator",
-            "Adversarial patch-based conditional GAN generator (11.38M params).",
-        ),
-        (
-            "checkpoints/fcc_cgan/best_fcc_cgan_generator.pt",
-            "LISS-IV FCC cGAN Generator",
-            "False Color Composite (NIR-Red-Green) cGAN generator.",
+            "checkpoints/best_unet.pt",
+            "Full U-Net (Benchmark Comparison)",
+            "Standard U-Net (7.76M params, compound L1+SSIM, optional benchmark comparison baseline).",
         ),
     ]
     models = []
@@ -338,42 +318,49 @@ def get_available_presets() -> List[Dict[str, Any]]:
     """Return preconfigured benchmark and synthetic test presets."""
     presets = [
         {
-            "id": "sen12mscr_val_0",
-            "name": "Sentinel-2 Validation Patch #0 (p101)",
-            "description": "Real Sentinel-2 L1C/L2A winter scene over ROI 102. Contains moderate cloud cover.",
-            "category": "Real Benchmark",
+            "id": "rice2_test_600",
+            "name": "RICE2 Test Scene #600 (Held-Out Benchmark)",
+            "description": "Held-out test split scene #600 from RICE2. Landsat-style RGB (512x512) with paired clear reference.",
+            "category": "RICE2 Benchmark",
             "is_synthetic": False,
             "has_ground_truth": True,
-            "patch_id": "p101",
-            "split": "val",
-            "index": 0,
+            "sample_id": "600",
+            "split": "test",
         },
         {
-            "id": "sen12mscr_val_1",
-            "name": "Sentinel-2 Validation Patch #1 (p104)",
-            "description": "Real Sentinel-2 paired optical scene with heavy cloud cover.",
-            "category": "Real Benchmark",
+            "id": "rice2_test_700",
+            "name": "RICE2 Test Scene #700 (Held-Out Benchmark)",
+            "description": "Held-out test split scene #700 from RICE2. Moderate cloud cover over diverse surface terrain.",
+            "category": "RICE2 Benchmark",
             "is_synthetic": False,
             "has_ground_truth": True,
-            "patch_id": "p104",
-            "split": "val",
-            "index": 1,
+            "sample_id": "700",
+            "split": "test",
         },
         {
-            "id": "sen12mscr_val_2",
-            "name": "Sentinel-2 Validation Patch #2 (p107)",
-            "description": "Real Sentinel-2 paired scene with dense cloud core and thin cloud edges.",
-            "category": "Real Benchmark",
+            "id": "rice2_test_500",
+            "name": "RICE2 Test Scene #500 (Held-Out Benchmark)",
+            "description": "Held-out test split scene #500 from RICE2. Heterogeneous clouds with paired ground-truth reference.",
+            "category": "RICE2 Benchmark",
             "is_synthetic": False,
             "has_ground_truth": True,
-            "patch_id": "p107",
-            "split": "val",
-            "index": 2,
+            "sample_id": "500",
+            "split": "test",
+        },
+        {
+            "id": "rice2_scene_0",
+            "name": "RICE2 Reference Scene #0 (Paired Reference)",
+            "description": "RICE2 reference sample #0. Dense cloud contamination over agricultural landscape.",
+            "category": "RICE2 Benchmark",
+            "is_synthetic": False,
+            "has_ground_truth": True,
+            "sample_id": "0",
+            "split": "train",
         },
         {
             "id": "synthetic_dense_0",
             "name": "Synthetic Cloud Simulation (40% Density)",
-            "description": "Simulated multi-scale Perlin/Gaussian cloud turbulence overlaid on clear Sentinel-2 surface.",
+            "description": "Simulated multi-scale Perlin/Gaussian cloud turbulence overlaid on clear surface.",
             "category": "Synthetic Simulation",
             "is_synthetic": True,
             "has_ground_truth": True,
@@ -381,14 +368,15 @@ def get_available_presets() -> List[Dict[str, Any]]:
             "seed": 42,
         },
         {
-            "id": "synthetic_haze_1",
-            "name": "Synthetic Haze & Cirrus (25% Coverage)",
-            "description": "Simulated semi-transparent cirrus haze overlaid on clear Sentinel-2 surface.",
-            "category": "Synthetic Simulation",
-            "is_synthetic": True,
+            "id": "sen12mscr_val_0",
+            "name": "Sentinel-2 Validation Patch #0 (p101)",
+            "description": "Real Sentinel-2 L1C/L2A winter scene over ROI 102. Contains moderate cloud cover.",
+            "category": "Exploratory Sentinel-2",
+            "is_synthetic": False,
             "has_ground_truth": True,
-            "coverage": 0.25,
-            "seed": 105,
+            "patch_id": "p101",
+            "split": "val",
+            "index": 0,
         },
     ]
     return presets
@@ -404,8 +392,64 @@ def load_preset_data(preset_id: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, 
         )
 
     preset_info = presets[preset_id]
-    manifest_path = "data/raw/sen12mscr/manifest.json"
 
+    # Handle RICE2 benchmark presets
+    if preset_info.get("sample_id") is not None or preset_id.startswith("rice2_"):
+        sample_id = str(preset_info.get("sample_id", "600"))
+        cloud_p = Path(f"data/raw/RICE2/cloud/{sample_id}.png")
+        label_p = Path(f"data/raw/RICE2/label/{sample_id}.png")
+        mask_p = Path(f"data/raw/RICE2/mask/{sample_id}.png")
+        if not cloud_p.is_file() or not label_p.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"RICE2 sample '{sample_id}' not found on disk at {cloud_p}",
+            )
+        cloud_img = Image.open(cloud_p).convert("RGB")
+        clear_img = Image.open(label_p).convert("RGB")
+        cloudy_arr = np.array(cloud_img, dtype=np.float32).transpose(2, 0, 1) / 255.0
+        clear_arr = np.array(clear_img, dtype=np.float32).transpose(2, 0, 1) / 255.0
+        meta = {
+            "source": f"RICE2 Paired Optical Benchmark (Scene #{sample_id}, {preset_info.get('split', 'test')} split)",
+            "is_synthetic": False,
+            "crs": None,
+            "transform": None,
+            "patch_id": f"rice2_{sample_id}",
+            "spatial_resolution": "512x512 RGB (Landsat-style)",
+            "has_cloud_mask": mask_p.is_file(),
+            "mask_path": str(mask_p) if mask_p.is_file() else None,
+        }
+        return cloudy_arr, clear_arr, meta
+
+    # Handle synthetic cloud presets
+    if preset_info["is_synthetic"]:
+        rice_label = Path("data/raw/RICE2/label/0.png")
+        if rice_label.is_file():
+            clear_img = Image.open(rice_label).convert("RGB")
+            clear_arr = np.array(clear_img, dtype=np.float32).transpose(2, 0, 1) / 255.0
+        else:
+            manifest_path = "data/raw/sen12mscr/manifest.json"
+            dataset = SEN12MSCRDataset.from_manifest(manifest_path, split="val")
+            clear_arr = dataset[0]["clear"].numpy()
+
+        c, h, w = clear_arr.shape
+        cov = preset_info.get("coverage", 0.40)
+        seed = preset_info.get("seed", 42)
+        cfg = CloudConfig(seed=seed, min_coverage=cov, max_coverage=cov)
+        mask = generate_cloud_mask(h, w, coverage=cov, config=cfg, seed=seed)
+        cloudy_arr = blend_synthetic_clouds(clear_arr, mask, config=cfg, seed=seed)
+        meta = {
+            "source": "Synthetic Cloud Generation (Radiative Blending on Clear Reference)",
+            "is_synthetic": True,
+            "crs": None,
+            "transform": None,
+            "patch_id": f"synthetic_{preset_info['id']}",
+            "spatial_resolution": f"{h}x{w} RGB (Simulated)",
+            "coverage": cov,
+        }
+        return cloudy_arr, clear_arr, meta
+
+    # Handle legacy Sentinel-2 presets if requested
+    manifest_path = "data/raw/sen12mscr/manifest.json"
     try:
         dataset = SEN12MSCRDataset.from_manifest(manifest_path, split="val")
     except Exception as exc:
@@ -414,40 +458,21 @@ def load_preset_data(preset_id: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, 
             detail=f"Failed to load benchmark dataset manifest: {exc}",
         )
 
-    if preset_info["is_synthetic"]:
-        # Use clear patch from val split, blend synthetic clouds
-        sample = dataset[0]
-        clear_arr = sample["clear"].numpy()  # [3, 256, 256]
-        c, h, w = clear_arr.shape
-        cov = preset_info.get("coverage", 0.35)
-        seed = preset_info.get("seed", 42)
-        cfg = CloudConfig(seed=seed, min_coverage=cov, max_coverage=cov)
-        mask = generate_cloud_mask(h, w, coverage=cov, config=cfg, seed=seed)
-        cloudy_arr = blend_synthetic_clouds(clear_arr, mask, config=cfg, seed=seed)
-        meta = {
-            "source": "Synthetic Cloud Generation (Radiative Blending on Sentinel-2 Clear Reference)",
-            "is_synthetic": True,
-            "crs": "EPSG:32632",
-            "transform": None,
-            "patch_id": f"synthetic_{preset_info['id']}",
-            "spatial_resolution": "10.0m x 10.0m (Simulated)",
-            "coverage": cov,
-        }
-    else:
-        idx = preset_info.get("index", 0)
-        if idx >= len(dataset):
-            idx = 0
-        sample = dataset[idx]
-        cloudy_arr = sample["cloudy"].numpy()
-        clear_arr = sample["clear"].numpy()
-        meta = {
-            "source": "SEN12MS-CR Paired Optical Benchmark (Winter ROI 102)",
-            "is_synthetic": False,
-            "crs": "EPSG:32632",
-            "transform": None,
-            "patch_id": sample["patch_id"],
-            "spatial_resolution": "10.0m x 10.0m GSD",
-        }
+    idx = preset_info.get("index", 0)
+    if idx >= len(dataset):
+        idx = 0
+    sample = dataset[idx]
+    cloudy_arr = sample["cloudy"].numpy()
+    clear_arr = sample["clear"].numpy()
+    meta = {
+        "source": "SEN12MS-CR Paired Optical Benchmark (Winter ROI 102)",
+        "is_synthetic": False,
+        "crs": "EPSG:32632",
+        "transform": None,
+        "patch_id": sample["patch_id"],
+        "spatial_resolution": "10.0m x 10.0m GSD",
+    }
+    return cloudy_arr, clear_arr, meta
 
     return cloudy_arr, clear_arr, meta
 
@@ -613,12 +638,12 @@ def get_ui_html() -> str:
         <!-- Status Indicator 1: Model Chip -->
         <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-[4px] bg-gblueTint border border-[#D2E3FC] text-gblueActive font-mono text-[11px] font-medium tabular-nums">
           <span class="w-1.5 h-1.5 rounded-full bg-gblue animate-pulse"></span>
-          <span id="serviceBadge">Model: Full U-Net (42.13 dB - Best)</span>
+          <span id="serviceBadge">Model: Compact U-Net (RICE2 Baseline)</span>
         </div>
 
-        <!-- Status Indicator 2: Real / Synthetic S2 Chip -->
+        <!-- Status Indicator 2: Real / Synthetic Chip -->
         <div id="sourceBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-subtle border border-borderOuter text-inkBody font-mono text-[11px] font-medium">
-          <span id="sourceBadgeText">REAL OPTICAL S2</span>
+          <span id="sourceBadgeText">RICE2 RGB (512x512)</span>
         </div>
       </div>
 
@@ -639,7 +664,7 @@ def get_ui_html() -> str:
           <div class="text-[13px] leading-relaxed text-inkBody">
             <span class="font-medium text-warnInk mr-1">Sensor & Domain Boundary Notice:</span>
             <span>
-              The production baseline is officially evaluated on the <span class="font-mono text-[12px] text-ink">RICE2</span> benchmark (Landsat-style RGB surface reflectance). Output is an <span class="font-medium text-ink">estimated surface reconstruction</span>; opaque optical cloud penetration is physically impossible. Historical ISRO LISS-IV sensor tooling is classified as <span class="font-medium text-ink">experimental</span> and unsupported for production inference (see <code class="font-mono text-[11px]">docs/future_work/liss4_roadmap.md</code>).
+              Designed for <span class="font-mono text-[12px] text-ink">RICE2</span> / Landsat-style RGB benchmark imagery. Output is an <span class="font-medium text-ink">estimated surface reconstruction</span> based on surrounding spatial context; optical photons cannot penetrate opaque clouds. Historical ISRO LISS-IV sensor tooling is classified as <span class="font-medium text-ink">experimental</span> and unsupported for production inference (see <code class="font-mono text-[11px]">docs/future_work/liss4_roadmap.md</code>).
             </span>
           </div>
         </div>
@@ -656,20 +681,20 @@ def get_ui_html() -> str:
       <div id="bandSpecDrawer" class="hidden mt-3 pt-3 border-t border-warnBorder grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
         <div class="bg-surface border border-borderOuter rounded-[4px] p-2.5">
           <div class="font-medium text-ink mb-1 flex items-center justify-between">
-            <span>Sentinel-2 MSI (Validated Training Domain)</span>
-            <span class="font-mono text-[11px] text-gblueActive bg-gblueTint px-1.5 py-0.5 rounded">10m GSD • True RGB</span>
+            <span>RICE2 / Landsat Optical RGB (Supported Benchmark Domain)</span>
+            <span class="font-mono text-[11px] text-gblueActive bg-gblueTint px-1.5 py-0.5 rounded">30m GSD • True RGB (512x512)</span>
           </div>
           <p class="text-slate font-mono text-[11px] leading-relaxed">
-            B04 (Red: 665 nm) • B03 (Green: 560 nm) • B02 (Blue: 490 nm) — L2A Bottom-of-Atmosphere reflectance [0.0, 1.0].
+            Red (665 nm) • Green (560 nm) • Blue (480 nm) — Normalized physical surface reflectance in [0.0, 1.0].
           </p>
         </div>
         <div class="bg-surface border border-borderOuter rounded-[4px] p-2.5">
           <div class="font-medium text-ink mb-1 flex items-center justify-between">
-            <span>ISRO Resourcesat-2A LISS-IV (Unvalidated Domain)</span>
+            <span>ISRO Resourcesat-2A LISS-IV (Experimental / Unsupported)</span>
             <span class="font-mono text-[11px] text-warnInk bg-warnBg px-1.5 py-0.5 rounded">5.8m GSD • NIR-R-G FCC</span>
           </div>
           <p class="text-slate font-mono text-[11px] leading-relaxed">
-            B2 (Green: 520–590 nm) • B3 (Red: 620–680 nm) • B4 (NIR: 770–860 nm) — Lacks optical Blue channel (B02).
+            Band 2 (Green) • Band 3 (Red) • Band 4 (NIR) — Lacks optical Blue channel (B02); uncalibrated DNs. Unsupported for v1.0 inference.
           </p>
         </div>
       </div>
@@ -694,7 +719,7 @@ def get_ui_html() -> str:
               Neural Model Architecture
             </h2>
             <span id="modelParamBadge" class="font-mono text-[11px] font-medium text-slate bg-subtle border border-borderInner px-2 py-0.5 rounded-[4px] tabular-nums">
-              7.76M PARAMS (150 EP)
+              1.94M PARAMS (RICE2 v1.0)
             </span>
           </div>
 
@@ -737,7 +762,7 @@ def get_ui_html() -> str:
           <div id="tabPanelPresets" class="space-y-3">
             <div>
               <label for="presetSelect" class="block text-[12px] font-medium text-slate mb-1.5">
-                Select a paired Sentinel-2 SEN12MS-CR validation tile:
+                Select a paired RICE2 benchmark scene (Landsat-style RGB):
               </label>
               <div class="relative">
                 <select id="presetSelect" class="g-select w-full appearance-none bg-surface border border-borderOuter hover:border-slate rounded-[6px] pl-3 pr-8 py-2 text-[12px] font-mono text-ink transition cursor-pointer">
@@ -1282,7 +1307,18 @@ def get_ui_html() -> str:
           }
           sel.appendChild(opt);
         });
-        updateModelParamBadge(data.active_model);
+        if (data.active_model) {
+          updateModelParamBadge(data.active_model);
+          const chk = (data.active_model || '').toLowerCase();
+          let label = 'Model: Compact U-Net (RICE2 Baseline)';
+          if (chk.includes('rice2')) {
+            label = 'Model: Compact U-Net (RICE2 Baseline)';
+          } else if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+            label = 'Model: Full U-Net (Benchmark Comparison)';
+          }
+          const sBadge = document.getElementById('serviceBadge');
+          if (sBadge) sBadge.innerText = label;
+        }
       } catch (err) {
         console.error('Failed to load models list', err);
       }
@@ -1292,20 +1328,12 @@ def get_ui_html() -> str:
       const badge = document.getElementById('modelParamBadge');
       if (!badge) return;
       const chk = (checkpointPath || '').toLowerCase();
-      if (chk.includes('best_unet') || chk.includes('standard_unet')) {
-        badge.innerText = '7.76M PARAMS (150 EP)';
-      } else if (chk.includes('best_compact_unet_v2') || chk.includes('v2')) {
-        badge.innerText = '1.94M PARAMS (RECORD)';
-      } else if (chk.includes('rice2')) {
-        badge.innerText = '1.94M PARAMS (RICE2)';
-      } else if (chk.includes('cgan') && chk.includes('fcc')) {
-        badge.innerText = '11.38M GENERATOR (FCC)';
-      } else if (chk.includes('cgan')) {
-        badge.innerText = '11.38M GENERATOR';
-      } else if (chk.includes('compact')) {
-        badge.innerText = '1.94M PARAMS';
+      if (chk.includes('rice2')) {
+        badge.innerText = '1.94M PARAMS (RICE2 v1.0)';
+      } else if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+        badge.innerText = '7.76M PARAMS (COMPARISON)';
       } else {
-        badge.innerText = 'ACTIVE MODEL';
+        badge.innerText = '1.94M PARAMS (BASELINE)';
       }
     }
 
@@ -1332,20 +1360,13 @@ def get_ui_html() -> str:
         statusMsg.innerText = '✓ Active model switched successfully!';
         updateModelParamBadge(data.active_checkpoint);
 
-        let label = 'Model: U-Net';
+        let label = 'Model: Compact U-Net (RICE2 Baseline)';
         const chk = (data.active_checkpoint || '').toLowerCase();
         let isCrossSensor = false;
-        if (chk.includes('best_unet') || chk.includes('standard_unet')) {
-          label = 'Model: Full U-Net (42.13 dB - Best)';
-        } else if (chk.includes('best_compact_unet_v2') || chk.includes('v2')) {
-          label = 'Model: U-Net v2 (41.09 dB - Record)';
-        } else if (chk.includes('rice2')) {
-          label = 'Model: RICE2 Compact U-Net';
-        } else if (chk.includes('cgan') && chk.includes('fcc')) {
-          label = 'Model: LISS-IV FCC cGAN (Experimental)';
-          isCrossSensor = true;
-        } else if (chk.includes('cgan')) {
-          label = 'Model: Pix2Pix cGAN';
+        if (chk.includes('rice2')) {
+          label = 'Model: Compact U-Net (RICE2 Baseline)';
+        } else if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+          label = 'Model: Full U-Net (Benchmark Comparison)';
         } else if (chk.includes('compact')) {
           label = 'Model: Compact U-Net';
         }
@@ -1455,8 +1476,11 @@ def get_ui_html() -> str:
       const selectedId = document.getElementById('presetSelect').value;
       const p = presetsData.find(item => item.id === selectedId);
       if (p) {
+        const tag = p.is_synthetic
+          ? '⚠️ Simulated Gaussian/Perlin turbulence'
+          : (p.id.includes('rice2') ? '🛰️ Real RICE2 paired optical benchmark scene (512x512)' : '✓ Real optical paired validation scene');
         document.getElementById('presetDesc').innerHTML =
-          `<strong>${p.name}:</strong> ${p.description} <br><span class="font-mono text-[11px]">${p.is_synthetic ? '⚠️ Simulated Gaussian/Perlin turbulence' : '✓ Real SEN12MS-CR paired optical validation scene'}</span>`;
+          `<strong>${p.name}:</strong> ${p.description} <br><span class="font-mono text-[11px]">${tag}</span>`;
       }
     }
 

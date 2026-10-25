@@ -137,6 +137,22 @@ def test_predict_real_preset(test_client):
     assert "session_id" in data
 
 
+def test_predict_rice2_preset(test_client):
+    """Verify prediction with real RICE2 benchmark sample (512x512)."""
+    resp = test_client.post("/api/ui/predict", data={"preset_id": "rice2_test_600"})
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["is_synthetic"] is False
+    assert data["has_ground_truth"] is True
+    assert data["metrics"] is not None
+    assert "input_mae" in data["metrics"]
+    assert "pred_mae" in data["metrics"]
+    assert data["cloudy_preview"].startswith("data:image/png;base64,")
+    assert data["pred_preview"].startswith("data:image/png;base64,")
+    assert data["clear_preview"].startswith("data:image/png;base64,")
+
+
 def test_predict_synthetic_preset(test_client):
     """Verify prediction with synthetic cloud simulation sample clearly labeled."""
     resp = test_client.post("/api/ui/predict", data={"preset_id": "synthetic_dense_0"})
