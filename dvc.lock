@@ -46,47 +46,36 @@ stages:
       md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
       size: 168687
   train:
-    cmd: python -m cloud_removal.train --config configs/train_compact_unet.yaml
+    cmd: python -m cloud_removal.train_rice2 --config 
+      configs/train_rice2_compact_unet.yaml
     deps:
-    - path: configs/train_compact_unet.yaml
+    - path: configs/train_rice2_compact_unet.yaml
       hash: md5
-      md5: 17b93ce526656406fb20324549f78c56
-      size: 1006
-    - path: data/manifests/sen12mscr_manifest.json
+      md5: 55637ab026027ab7c3cff8ea13872e0e
+      size: 756
+    - path: data/manifests/rice2_manifest.json
       hash: md5
-      md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
-      size: 168687
+      md5: 6dbdb85eba00b635c312e18aef086c93
+      size: 354634
     - path: src/cloud_removal/metrics.py
       hash: md5
-      md5: f515cad558c2df1cd19ddb27bad62fdc
-      size: 31496
+      md5: acd62d645d90b5a3025fe7220810a363
+      size: 32010
     - path: src/cloud_removal/models/unet.py
       hash: md5
-      md5: d5312b97e4982cbf81b50b061d8e7ec2
-      size: 7043
-    - path: src/cloud_removal/sen12mscr.py
+      md5: e70919943aa94b3361a9571713774566
+      size: 7137
+    - path: src/cloud_removal/train_rice2.py
       hash: md5
-      md5: 541dd1790d3f5512248dfda2673781e9
-      size: 18427
-    - path: src/cloud_removal/train.py
-      hash: md5
-      md5: cd7df32ffd6013d4393086ac565bfcef
-      size: 30530
+      md5: f762ac4623b061352942b34894ef0887
+      size: 9175
     params:
-      configs/train_compact_unet.yaml:
+      configs/train_rice2_compact_unet.yaml:
         dataset:
-          bands:
-          - 4
-          - 3
-          - 2
-          band_names:
-          - B04
-          - B03
-          - B02
-          normalize: true
-          clip_max: 10000.0
-          train_ratio: 0.8
-          val_ratio: 0.2
+          name: RICE2
+          train_ratio: 0.64
+          val_ratio: 0.16
+          test_ratio: 0.2
           seed: 42
           augment: true
         model:
@@ -95,59 +84,84 @@ stages:
           base_channels: 16
           bilinear: false
           use_sigmoid: true
-          prior_reflectance: 0.107
+          prior_reflectance: 0.35
         training:
-          epochs: 5
-          batch_size: 8
+          epochs: 40
+          batch_size: 4
           learning_rate: 0.0002
           weight_decay: 1e-05
-          optimizer: adamw
-          loss: compound_l1_ssim
           ssim_weight: 0.2
-          scheduler: cosine
-          t_max: 5
-          eta_min: 1e-06
-          early_stopping: true
-          patience: 5
+          patience: 8
           min_delta: 0.0001
           num_workers: 0
           device: auto
-          max_train_samples:
-          max_val_samples:
     outs:
-    - path: checkpoints/compact/best_compact_unet.pt
+    - path: checkpoints/rice2/best_rice2_compact_unet.pt
       hash: md5
-      md5: c27776072945283d7377496d792b4b3b
-      size: 23421867
+      md5: 7ae3bdffca47865680e76cf43d153d71
+      size: 23423955
   evaluate:
-    cmd: python -m cloud_removal.evaluate --checkpoint 
-      checkpoints/compact/best_compact_unet.pt --config 
-      configs/train_compact_unet.yaml --manifest 
-      data/manifests/sen12mscr_manifest.json --split val --output 
-      reports/val_metrics.json
+    cmd: python -m cloud_removal.evaluate_rice2 --checkpoint 
+      checkpoints/rice2/best_rice2_compact_unet.pt --manifest 
+      data/manifests/rice2_manifest.json --split test --output 
+      reports/rice2_test_metrics.json
     deps:
-    - path: checkpoints/compact/best_compact_unet.pt
+    - path: checkpoints/rice2/best_rice2_compact_unet.pt
       hash: md5
-      md5: c27776072945283d7377496d792b4b3b
-      size: 23421867
-    - path: configs/train_compact_unet.yaml
+      md5: 7ae3bdffca47865680e76cf43d153d71
+      size: 23423955
+    - path: data/manifests/rice2_manifest.json
       hash: md5
-      md5: 17b93ce526656406fb20324549f78c56
-      size: 1006
-    - path: data/manifests/sen12mscr_manifest.json
+      md5: 6dbdb85eba00b635c312e18aef086c93
+      size: 354634
+    - path: src/cloud_removal/evaluate_rice2.py
       hash: md5
-      md5: ff9c91b7bea1ac893e9a7b8bc2a71d18
-      size: 168687
-    - path: src/cloud_removal/evaluate.py
-      hash: md5
-      md5: eb397010037f81785caa96720059c69b
-      size: 11237
+      md5: 33bcbc45fb0cc39507e677e2551195aa
+      size: 4844
     - path: src/cloud_removal/metrics.py
       hash: md5
-      md5: f515cad558c2df1cd19ddb27bad62fdc
-      size: 31496
+      md5: acd62d645d90b5a3025fe7220810a363
+      size: 32010
     outs:
-    - path: reports/val_metrics.json
+    - path: reports/rice2_test_metrics.json
       hash: md5
-      md5: 3a5e53ab6e7b67b3e2dca7e81ce1101f
-      size: 1214
+      md5: 3f925849416fe7852cdaca50c9455d3b
+      size: 775
+  manifest:
+    cmd: python -m cloud_removal.rice2 --dataset-root data/raw/RICE2 --output 
+      data/manifests/rice2_manifest.json
+    deps:
+    - path: data/raw/RICE2
+      hash: md5
+      md5: c0ee395c1d209107a654b35c0f7e58df.dir
+      size: 262702199
+      nfiles: 2208
+    - path: src/cloud_removal/rice2.py
+      hash: md5
+      md5: b775013adac9bebdb3914a5f74074120
+      size: 10505
+    outs:
+    - path: data/manifests/rice2_manifest.json
+      hash: md5
+      md5: 6dbdb85eba00b635c312e18aef086c93
+      size: 354634
+  report:
+    cmd: python scripts/generate_rice2_report.py
+    deps:
+    - path: reports/rice2_test_metrics.json
+      hash: md5
+      md5: 3f925849416fe7852cdaca50c9455d3b
+      size: 775
+    - path: scripts/generate_rice2_report.py
+      hash: md5
+      md5: ce6fef487c82e18c6f428080c5572334
+      size: 6991
+    outs:
+    - path: reports/figures/rice2_benchmark_sample.png
+      hash: md5
+      md5: b1e9da69837876165c20c0f81e59dbbd
+      size: 1047988
+    - path: reports/rice2_benchmark_report.md
+      hash: md5
+      md5: dd03028407e6c076e646db8da4580d85
+      size: 3495

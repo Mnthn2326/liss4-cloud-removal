@@ -9,15 +9,16 @@ from __future__ import annotations
 import argparse
 import ftplib
 import json
+import os
 import sys
 import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-FTP_HOST = "dataserv.ub.tum.de"
-FTP_USER = "m1554803"
-FTP_PASS = "m1554803"
+FTP_HOST = os.environ.get("SEN12MSCR_FTP_HOST", "dataserv.ub.tum.de")
+FTP_USER = os.environ.get("SEN12MSCR_FTP_USER", "")
+FTP_PASS = os.environ.get("SEN12MSCR_FTP_PASS", "")
 
 DEFAULT_SEASON = "winter"
 DEFAULT_ROI = "102"
@@ -49,7 +50,16 @@ def stream_extract_roi_tar(
 
     print(f"Connecting to FTP ({FTP_HOST}) for {archive_name}...")
     ftp = ftplib.FTP(FTP_HOST, timeout=60)
-    ftp.login(FTP_USER, FTP_PASS)
+    if FTP_USER and FTP_PASS:
+        ftp.login(FTP_USER, FTP_PASS)
+    else:
+        try:
+            ftp.login()
+        except ftplib.error_perm as perm_err:
+            raise PermissionError(
+                f"FTP access requires credentials. Please set SEN12MSCR_FTP_USER and "
+                f"SEN12MSCR_FTP_PASS environment variables (see .env.example): {perm_err}"
+            ) from perm_err
 
     d = zlib.decompressobj(16 + zlib.MAX_WBITS)
     raw_tar = bytearray()
