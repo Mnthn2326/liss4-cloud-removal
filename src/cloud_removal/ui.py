@@ -827,11 +827,11 @@ def get_ui_html() -> str:
                 </button>
               </div>
               <p class="text-[11.5px] text-slate">
-                Supports <span class="font-medium text-inkBody">13-band Sentinel-2 GeoTIFF</span>, <span class="font-medium text-inkBody">3-band RGB GeoTIFF</span>, and <span class="font-medium text-inkBody">standard 3-channel RGB images</span>. Single-band rasters are rejected.
+                Designed for <span class="font-medium text-inkBody">RICE2 & Landsat-style RGB imagery</span>. Supports 3-channel RGB PNG/JPEG and 3-band GeoTIFF. Single-band rasters and uncalibrated multi-band scenes are strictly rejected.
               </p>
               <!-- Validation Callout for Single-Band Rejection Demo -->
               <div id="singleBandAlert" class="hidden mt-2 p-2 rounded-[4px] bg-[#FCE8E6] border border-[#FAD2CF] text-[#C5221F] font-mono text-[11px]">
-                Rejected input <span class="font-semibold">dem_single_band.tif</span> (shape: 1 × 512 × 512). Model requires 3 optical channels (B04, B03, B02). Isolated LISS-IV single-band rasters (BAND2/3/4) lack cross-sensor calibration.
+                Rejected input <span class="font-semibold">dem_single_band.tif</span> (shape: 1 × 512 × 512). Model requires 3 optical channels (Red, Green, Blue). Isolated single-band rasters and raw LISS-IV bands lack 3-channel optical calibration.
               </div>
             </div>
 
@@ -945,6 +945,12 @@ def get_ui_html() -> str:
               <span>🖼️ Download PNG (.png)</span>
             </button>
           </div>
+        </div>
+
+        <!-- Reconstruction Estimation Notice -->
+        <div class="px-5 py-2 bg-subtle border-b border-borderInner flex items-center justify-between text-[11.5px] text-slate">
+          <span>⚠️ <strong>Scientific Notice:</strong> Output pixel values in cloud-obscured regions are statistical spatial reconstructions, not physical optical penetration.</span>
+          <span class="font-mono text-[11px] text-muted">BOA Reflectance: [0.0, 1.0]</span>
         </div>
 
         <!-- Visual Comparison Display Area -->
