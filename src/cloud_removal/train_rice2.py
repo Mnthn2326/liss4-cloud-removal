@@ -68,9 +68,33 @@ def create_rice2_dataloaders(config: Dict[str, Any]) -> Tuple[DataLoader, DataLo
     train_cfg = config.get("training", {})
     batch_size = int(train_cfg.get("batch_size", 4))
     workers = int(train_cfg.get("num_workers", 0))
+    seed = int(config.get("seed", 42))
+
+    gen = torch.Generator()
+    gen.manual_seed(seed)
+
+    def _init_fn(worker_id: int) -> None:
+        import random
+        worker_seed = (seed + worker_id) % (2**32)
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
     return (
-        DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=workers),
-        DataLoader(val_set, batch_size=batch_size, shuffle=False, num_workers=workers),
+        DataLoader(
+            train_set,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=workers,
+            worker_init_fn=_init_fn,
+            generator=gen,
+        ),
+        DataLoader(
+            val_set,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=workers,
+            worker_init_fn=_init_fn,
+        ),
     )
 
 
@@ -105,8 +129,10 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
     )
     checkpoint_dir = Path(config.get("checkpoint_dir", "checkpoints/rice2"))
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    best_path = checkpoint_dir / config.get("checkpoint_name", "best_rice2_compact_unet.pt")
-    latest_path = checkpoint_dir / config.get("latest_checkpoint_name", "latest_rice2_compact_unet.pt")
+    best_name = "smoke_best_rice2_compact_unet.pt" if smoke_test else config.get("checkpoint_name", "best_rice2_compact_unet.pt")
+    latest_name = "smoke_latest_rice2_compact_unet.pt" if smoke_test else config.get("latest_checkpoint_name", "latest_rice2_compact_unet.pt")
+    best_path = checkpoint_dir / best_name
+    latest_path = checkpoint_dir / latest_name
     stopper = EarlyStopping(
         patience=int(training_cfg.get("patience", 8)),
         min_delta=float(training_cfg.get("min_delta", 1e-4)),
