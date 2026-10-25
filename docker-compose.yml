@@ -8,7 +8,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./checkpoints/compact/best_compact_unet.pt:/models/checkpoint.pt:ro
+      - ./checkpoints/rice2/best_rice2_compact_unet.pt:/models/checkpoint.pt:ro
       - ./src:/app/src
       - ./data:/app/data:ro
     environment:

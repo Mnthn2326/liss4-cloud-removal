@@ -111,6 +111,8 @@ def test_readiness_success_when_initialized(ready_app: TestClient):
     assert data["ready"] is True
     assert data["status"] == "ready"
     assert data["model_type"] == "UNet"
+    assert data["model_version"] == "1.0.0"
+    assert data["dataset_version"] == "RICE2-v1"
     assert data["device"] == "cpu"
     assert data["in_channels"] == 3
     assert data["out_channels"] == 3

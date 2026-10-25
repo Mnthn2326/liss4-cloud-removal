@@ -110,3 +110,32 @@ def test_inference_error_metrics_recorded(isolated_app: TestClient):
     body = metrics_resp.text
     assert 'model_inference_requests_total{model_type="UNet",status="error"} 1.0' in body
     assert 'api_requests_total{endpoint="/predict",method="POST",status_code="500"} 1.0' in body
+
+
+def test_input_monitoring_and_rejected_reasons(isolated_app: TestClient):
+    """Input dimensions and reflectance histograms must be recorded, plus rejection reasons."""
+    # Successful request
+    sample = np.full((3, 32, 32), 0.40, dtype=float).tolist()
+    pred_resp = isolated_app.post("/predict", json={"image": sample})
+    assert pred_resp.status_code == 200
+
+    # Rejected request (invalid channels)
+    bad_sample = [[[0.5] * 32] * 32]
+    pred_bad = isolated_app.post("/predict", json={"image": bad_sample})
+    assert pred_bad.status_code == 422
+
+    metrics_resp = isolated_app.get("/metrics")
+    body = metrics_resp.text
+    assert "input_image_height_pixels_count 1.0" in body
+    assert "input_image_width_pixels_count 1.0" in body
+    assert "input_pixel_mean_reflectance_count 1.0" in body
+    assert 'rejected_requests_total{reason="invalid_channel_count"} 1.0' in body
+
+
+def test_model_version_info_metric(isolated_app: TestClient):
+    """model_version_info gauge must reflect current model and dataset versions."""
+    metrics_resp = isolated_app.get("/metrics")
+    body = metrics_resp.text
+    assert "model_version_info{" in body
+    assert 'dataset_version="RICE2-v1"' in body
+    assert 'model_version="1.0.0"' in body

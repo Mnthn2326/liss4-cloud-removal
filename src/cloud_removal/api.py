@@ -45,7 +45,7 @@ logging.basicConfig(level=logging.INFO)
 # Dimensions and constraints
 MIN_DIM = 16
 MAX_DIM = 512
-DEFAULT_CHECKPOINT = "checkpoints/best_unet.pt"
+DEFAULT_CHECKPOINT = "checkpoints/rice2/best_rice2_compact_unet.pt"
 
 
 class ServiceOverloadedError(RuntimeError):
@@ -79,6 +79,8 @@ class ReadySuccessResponse(BaseModel):
     ready: bool = Field(True, description="Readiness status")
     status: str = Field("ready", description="Operational status")
     model_type: str = Field(..., description="Model architecture type")
+    model_version: str = Field("1.0.0", description="Model semantic version")
+    dataset_version: str = Field("RICE2-v1", description="Approved benchmark dataset version")
     device: str = Field(..., description="Execution device")
     checkpoint: Optional[str] = Field(None, description="Active checkpoint identifier or path")
     in_channels: int = Field(3, description="Expected input channels")
@@ -345,6 +347,48 @@ class MetricsManager:
             "Gauge indicating whether model is currently loaded and ready for inference (1=ready, 0=not ready)",
             registry=self.registry,
         )
+        self.model_version_info = Gauge(
+            "model_version_info",
+            "Model and benchmark dataset version metadata",
+            ["model_version", "dataset_version", "model_type"],
+            registry=self.registry,
+        )
+        self.input_image_height = Histogram(
+            "input_image_height_pixels",
+            "Histogram of input image height in pixels",
+            buckets=(16, 32, 64, 128, 256, 512, 1024),
+            registry=self.registry,
+        )
+        self.input_image_width = Histogram(
+            "input_image_width_pixels",
+            "Histogram of input image width in pixels",
+            buckets=(16, 32, 64, 128, 256, 512, 1024),
+            registry=self.registry,
+        )
+        self.input_pixel_mean = Histogram(
+            "input_pixel_mean_reflectance",
+            "Histogram of mean pixel reflectance of input images",
+            buckets=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+            registry=self.registry,
+        )
+        self.input_pixel_min = Histogram(
+            "input_pixel_min_reflectance",
+            "Histogram of minimum pixel reflectance of input images",
+            buckets=(0.0, 0.05, 0.1, 0.2, 0.5, 1.0),
+            registry=self.registry,
+        )
+        self.input_pixel_max = Histogram(
+            "input_pixel_max_reflectance",
+            "Histogram of maximum pixel reflectance of input images",
+            buckets=(0.0, 0.2, 0.5, 0.8, 0.9, 0.95, 1.0),
+            registry=self.registry,
+        )
+        self.rejected_requests_total = Counter(
+            "rejected_requests_total",
+            "Total rejected inference or upload requests by failure reason",
+            ["reason"],
+            registry=self.registry,
+        )
 
 
 # ============================================================================
@@ -378,6 +422,8 @@ def create_app(
                 default_p = Path(DEFAULT_CHECKPOINT)
                 if default_p.is_file():
                     manager.load(str(default_p))
+                elif Path("checkpoints/rice2/best_rice2_compact_unet.pt").is_file():
+                    manager.load("checkpoints/rice2/best_rice2_compact_unet.pt")
                 elif Path("checkpoints/compact/best_compact_unet.pt").is_file():
                     manager.load("checkpoints/compact/best_compact_unet.pt")
                 else:
@@ -387,6 +433,14 @@ def create_app(
         metrics_mgr.model_ready_gauge.set(
             1.0 if manager.is_ready and manager.model is not None else 0.0
         )
+        m_ver = manager.model_config.get("model_version", "1.0.0")
+        d_ver = manager.model_config.get("dataset_version", "RICE2-v1")
+        m_type = manager.model_config.get("model_type", "UNet")
+        metrics_mgr.model_version_info.labels(
+            model_version=str(m_ver),
+            dataset_version=str(d_ver),
+            model_type=str(m_type),
+        ).set(1.0 if manager.is_ready and manager.model is not None else 0.0)
         yield
         # Shutdown cleanup
         logger.info("Application shutting down.")
@@ -482,6 +536,8 @@ def create_app(
                     "ready": True,
                     "status": "ready",
                     "model_type": manager.model_config.get("model_type", "UNet"),
+                    "model_version": manager.model_config.get("model_version", "1.0.0"),
+                    "dataset_version": manager.model_config.get("dataset_version", "RICE2-v1"),
                     "device": str(manager.device),
                     "checkpoint": manager.checkpoint_path,
                     "in_channels": manager.model_config.get("in_channels", 3),
@@ -525,6 +581,7 @@ def create_app(
     async def predict(request: PredictRequest) -> PredictResponse:
         # 1. Verify model readiness
         if not manager.is_ready or manager.model is None:
+            metrics_mgr.rejected_requests_total.labels(reason="model_not_ready").inc()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Model is not loaded or unavailable for inference.",
@@ -534,6 +591,7 @@ def create_app(
 
         # 2. Outer dimension checks
         if not isinstance(raw_image, list) or len(raw_image) != 3:
+            metrics_mgr.rejected_requests_total.labels(reason="invalid_channel_count").inc()
             raise HTTPException(
                 status_code=422,
                 detail=f"Unsupported channel count: expected 3 channels (RGB: [B04, B03, B02]), got {len(raw_image) if isinstance(raw_image, list) else 'non-list'}",
@@ -541,6 +599,7 @@ def create_app(
 
         h_len = len(raw_image[0]) if len(raw_image) > 0 and isinstance(raw_image[0], list) else 0
         if h_len == 0:
+            metrics_mgr.rejected_requests_total.labels(reason="empty_dimensions").inc()
             raise HTTPException(
                 status_code=422,
                 detail="Malformed image dimensions: height dimension must be non-empty.",
@@ -548,6 +607,7 @@ def create_app(
 
         w_len = len(raw_image[0][0]) if h_len > 0 and isinstance(raw_image[0][0], list) else 0
         if w_len == 0:
+            metrics_mgr.rejected_requests_total.labels(reason="empty_dimensions").inc()
             raise HTTPException(
                 status_code=422,
                 detail="Malformed image dimensions: width dimension must be non-empty.",
@@ -556,12 +616,14 @@ def create_app(
         # 3. Ragged row / channel validation
         for c_idx, ch in enumerate(raw_image):
             if not isinstance(ch, list) or len(ch) != h_len:
+                metrics_mgr.rejected_requests_total.labels(reason="ragged_dimensions").inc()
                 raise HTTPException(
                     status_code=422,
                     detail=f"Malformed image dimensions: channel {c_idx} has height {len(ch) if isinstance(ch, list) else 'invalid'}, expected {h_len}.",
                 )
             for r_idx, row in enumerate(ch):
                 if not isinstance(row, list) or len(row) != w_len:
+                    metrics_mgr.rejected_requests_total.labels(reason="ragged_dimensions").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"Malformed image dimensions: ragged row at channel {c_idx}, row {r_idx} (len {len(row) if isinstance(row, list) else 'invalid'} vs expected {w_len}).",
@@ -569,11 +631,13 @@ def create_app(
 
         # 4. Dimension bounds
         if h_len < MIN_DIM or w_len < MIN_DIM:
+            metrics_mgr.rejected_requests_total.labels(reason="dimension_bounds").inc()
             raise HTTPException(
                 status_code=422,
                 detail=f"Image dimensions ({h_len}x{w_len}) too small: minimum spatial size is {MIN_DIM}x{MIN_DIM}.",
             )
         if h_len > MAX_DIM or w_len > MAX_DIM:
+            metrics_mgr.rejected_requests_total.labels(reason="dimension_bounds").inc()
             raise HTTPException(
                 status_code=422,
                 detail=f"Image dimensions ({h_len}x{w_len}) exceed maximum allowed size of {MAX_DIM}x{MAX_DIM}.",
@@ -583,12 +647,14 @@ def create_app(
         try:
             arr = np.array(raw_image, dtype=np.float32)
         except Exception:
+            metrics_mgr.rejected_requests_total.labels(reason="malformed_numeric").inc()
             raise HTTPException(
                 status_code=422,
                 detail="Malformed numeric array in request payload.",
             )
 
         if not np.all(np.isfinite(arr)):
+            metrics_mgr.rejected_requests_total.labels(reason="non_finite_values").inc()
             raise HTTPException(
                 status_code=422,
                 detail="Input array contains non-finite values (NaN or Inf).",
@@ -598,6 +664,7 @@ def create_app(
         min_val = float(arr.min())
         max_val = float(arr.max())
         if min_val < 0.0 or max_val > 1.0:
+            metrics_mgr.rejected_requests_total.labels(reason="reflectance_range").inc()
             raise HTTPException(
                 status_code=422,
                 detail=(
@@ -605,6 +672,13 @@ def create_app(
                     f"Observed value range: [{min_val:.5f}, {max_val:.5f}]."
                 ),
             )
+
+        # Record input monitoring metrics
+        metrics_mgr.input_image_height.observe(float(h_len))
+        metrics_mgr.input_image_width.observe(float(w_len))
+        metrics_mgr.input_pixel_mean.observe(float(arr.mean()))
+        metrics_mgr.input_pixel_min.observe(min_val)
+        metrics_mgr.input_pixel_max.observe(max_val)
 
         # 7. Execute inference
         input_tensor = torch.from_numpy(arr)  # shape [3, H, W]
@@ -692,12 +766,14 @@ def create_app(
         ),
     ) -> Response:
         if not manager.is_ready or manager.model is None:
+            metrics_mgr.rejected_requests_total.labels(reason="model_not_ready").inc()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Model is not loaded or unavailable for inference.",
             )
 
         if tile_size <= overlap:
+            metrics_mgr.rejected_requests_total.labels(reason="tile_overlap_invalid").inc()
             raise HTTPException(
                 status_code=422,
                 detail=f"tile_size ({tile_size}) must be strictly greater than overlap ({overlap}).",
@@ -720,6 +796,7 @@ def create_app(
                 if total_bytes > max_upload_size:
                     tmp_in.close()
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="file_too_large").inc()
                     raise HTTPException(
                         status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                         detail=f"Upload size ({total_bytes} bytes) exceeds maximum allowed limit of {max_upload_size} bytes.",
@@ -729,6 +806,7 @@ def create_app(
 
             if total_bytes == 0:
                 tmp_in_path.unlink(missing_ok=True)
+                metrics_mgr.rejected_requests_total.labels(reason="empty_file").inc()
                 raise HTTPException(
                     status_code=422,
                     detail="Uploaded file is empty (0 bytes).",
@@ -760,6 +838,7 @@ def create_app(
                         is_png = True
                 except Exception:
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="unsupported_format").inc()
                     raise HTTPException(
                         status_code=422,
                         detail="Invalid or unsupported raster file: file is neither a valid GeoTIFF nor a supported PNG.",
@@ -769,12 +848,14 @@ def create_app(
             if is_geotiff:
                 if src_count != in_channels:
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="invalid_channel_count").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"Unsupported channel count: model expects {in_channels} channels, uploaded GeoTIFF has {src_count}.",
                     )
                 if src_h < MIN_DIM or src_w < MIN_DIM:
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="dimension_bounds").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"Raster dimensions ({src_h}x{src_w}) too small: minimum spatial size is {MIN_DIM}x{MIN_DIM}.",
@@ -782,6 +863,7 @@ def create_app(
             elif is_png:
                 if png_mode not in ("RGB", "L"):
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="unsupported_png_mode").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"Unsupported PNG mode '{png_mode}': expected 3-channel RGB image.",
@@ -789,16 +871,22 @@ def create_app(
                 png_channels = 3 if png_mode == "RGB" else 1
                 if png_channels != in_channels:
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="invalid_channel_count").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"Unsupported channel count: model expects {in_channels} channels, PNG has {png_channels}.",
                     )
                 if src_h < MIN_DIM or src_w < MIN_DIM:
                     tmp_in_path.unlink(missing_ok=True)
+                    metrics_mgr.rejected_requests_total.labels(reason="dimension_bounds").inc()
                     raise HTTPException(
                         status_code=422,
                         detail=f"PNG dimensions ({src_h}x{src_w}) too small: minimum spatial size is {MIN_DIM}x{MIN_DIM}.",
                     )
+
+            # Record raster input dimensions
+            metrics_mgr.input_image_height.observe(float(src_h))
+            metrics_mgr.input_image_width.observe(float(src_w))
 
             # 4. Execute windowed tiled inference
             tmp_out = tempfile.NamedTemporaryFile(delete=False, suffix=".tif")
@@ -933,6 +1021,14 @@ def create_app(
         metrics_mgr.model_ready_gauge.set(
             1.0 if manager.is_ready and manager.model is not None else 0.0
         )
+        m_ver = manager.model_config.get("model_version", "1.0.0")
+        d_ver = manager.model_config.get("dataset_version", "RICE2-v1")
+        m_type = manager.model_config.get("model_type", "UNet")
+        metrics_mgr.model_version_info.labels(
+            model_version=str(m_ver),
+            dataset_version=str(d_ver),
+            model_type=str(m_type),
+        ).set(1.0 if manager.is_ready and manager.model is not None else 0.0)
         data = generate_latest(metrics_mgr.registry)
         return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
