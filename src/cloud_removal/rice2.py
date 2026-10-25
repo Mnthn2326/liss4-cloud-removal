@@ -72,11 +72,31 @@ def _image_index(directory: Path) -> Dict[str, Path]:
     return {path.stem: path for path in directory.iterdir() if path.suffix.lower() in _IMAGE_SUFFIXES}
 
 
+def _validate_image_triplet(sample_id: str, cloudy: Path, clear: Path, mask: Path) -> None:
+    """Validate existence, readability, non-empty content, RGB mode, and dimension match."""
+    for p in (cloudy, clear, mask):
+        if not p.is_file() or p.stat().st_size == 0:
+            raise ValueError(f"Corrupted or missing file for sample '{sample_id}': {p}")
+
+    with Image.open(cloudy) as c_img, Image.open(clear) as l_img, Image.open(mask) as m_img:
+        if not (c_img.size == l_img.size == m_img.size):
+            raise ValueError(
+                f"Inconsistent spatial dimensions for sample '{sample_id}': "
+                f"cloudy={c_img.size}, clear={l_img.size}, mask={m_img.size}"
+            )
+        if c_img.mode not in ("RGB", "RGBA") or l_img.mode not in ("RGB", "RGBA"):
+            raise ValueError(
+                f"Non-RGB optical format for sample '{sample_id}': "
+                f"cloudy mode={c_img.mode}, clear mode={l_img.mode}. Expected 3-band RGB."
+            )
+
+
 def build_rice2_manifest(
     dataset_root: Union[str, Path] = "data/raw/RICE2",
     output_path: Union[str, Path] = "data/manifests/rice2_manifest.json",
     config: Optional[RICE2Config] = None,
     include_hashes: bool = True,
+    validate_integrity: bool = True,
 ) -> Dict[str, Any]:
     """Validate RICE2 folders and write an immutable-style paired-data manifest."""
     root = Path(dataset_root)
@@ -107,6 +127,8 @@ def build_rice2_manifest(
 
     def record(sample_id: str) -> Dict[str, Any]:
         paths = {key: indexes[key][sample_id] for key in indexes}
+        if validate_integrity:
+            _validate_image_triplet(sample_id, paths["cloud"], paths["label"], paths["mask"])
         item: Dict[str, Any] = {
             "sample_id": sample_id,
             "cloudy_path": paths["cloud"].relative_to(root.parent).as_posix(),

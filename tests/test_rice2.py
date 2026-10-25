@@ -48,3 +48,51 @@ def test_rice2_manifest_rejects_unpaired_files(tmp_path: Path) -> None:
         assert "identical sample IDs" in str(error)
     else:
         raise AssertionError("Expected unpaired RICE2 files to be rejected")
+
+
+def test_rice2_rejects_inconsistent_sizes(tmp_path: Path) -> None:
+    root = tmp_path / "RICE2"
+    for name in ("cloud", "label", "mask"):
+        (root / name).mkdir(parents=True)
+    _write_rgb(root / "cloud" / "0.png", 100)
+    # Write a mismatched spatial size
+    Image.fromarray(np.full((32, 32, 3), 80, dtype=np.uint8), mode="RGB").save(root / "label" / "0.png")
+    _write_rgb(root / "mask" / "0.png", 0)
+
+    try:
+        build_rice2_manifest(root, tmp_path / "manifest.json", include_hashes=False)
+    except ValueError as error:
+        assert "Inconsistent spatial dimensions" in str(error)
+    else:
+        raise AssertionError("Expected inconsistent image dimensions to be rejected")
+
+
+def test_rice2_split_disjointness_and_hashes(tmp_path: Path) -> None:
+    root = tmp_path / "RICE2"
+    for name in ("cloud", "label", "mask"):
+        (root / name).mkdir(parents=True)
+    for identifier in range(20):
+        _write_rgb(root / "cloud" / f"{identifier}.png", 200)
+        _write_rgb(root / "label" / f"{identifier}.png", 80)
+        _write_rgb(root / "mask" / f"{identifier}.png", 0)
+
+    manifest_path = tmp_path / "rice2_manifest.json"
+    manifest = build_rice2_manifest(root, manifest_path, RICE2Config(augment=False), include_hashes=True)
+
+    samples = manifest["samples"]
+    train_ids = {s["sample_id"] for s in samples if s["split"] == "train"}
+    val_ids = {s["sample_id"] for s in samples if s["split"] == "val"}
+    test_ids = {s["sample_id"] for s in samples if s["split"] == "test"}
+
+    # Assert strictly pairwise disjoint
+    assert train_ids.isdisjoint(val_ids)
+    assert train_ids.isdisjoint(test_ids)
+    assert val_ids.isdisjoint(test_ids)
+    assert len(train_ids | val_ids | test_ids) == 20
+
+    # Assert hashes are valid SHA-256 strings
+    for s in samples:
+        assert "sha256" in s
+        assert len(s["sha256"]["cloud"]) == 64
+        assert len(s["sha256"]["label"]) == 64
+        assert len(s["sha256"]["mask"]) == 64
