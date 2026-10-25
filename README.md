@@ -12,6 +12,19 @@ The official production baseline is trained and evaluated on the **RICE2** paire
 
 ---
 
+## Key Documentation
+
+| Document | Purpose |
+| :--- | :--- |
+| **[RICE2 Dataset Specification](docs/rice2_dataset.md)** | Details of the 736-scene RICE2 benchmark, directory structure, SHA-256 manifests, and split disjointness |
+| **[Model Card (v1.0.0)](docs/model_card.md)** | Full specification of the Compact U-Net baseline, architecture, training hyperparameters, and evaluation metrics |
+| **[5-Minute Defense Demo Guide](docs/demo_guide.md)** | Step-by-step presentation script for evaluators, covering UI, API, metrics, and Prometheus monitoring |
+| **[Scientific & Sensor Limitations](docs/limitations.md)** | In-depth analysis of optical penetration physics, temporal reference decorrelation, and operational boundaries |
+| **[RICE2 Benchmark Report](reports/rice2_benchmark_report.md)** | Full quantitative held-out test evaluation report with regional cloud-only metrics and visual comparisons |
+| **[LISS-IV Research Roadmap](docs/future_work/liss4_roadmap.md)** | Technical analysis of ISRO Resourcesat-2A LISS-IV sensor gaps and future cross-sensor transfer roadmap |
+
+---
+
 ## Benchmark Performance (RICE2 Untouched Test Split, $N=148$)
 
 Evaluated on the independent, held-out test split of the RICE2 benchmark:
@@ -153,12 +166,12 @@ pip install -e ".[dev]"
 
 ### 2. Run the Service Locally
 ```bash
-# Launch FastAPI service with default compact checkpoint
+# Launch FastAPI service with default RICE2 compact checkpoint
 uvicorn cloud_removal.api:app --host 0.0.0.0 --port 8000
 
 # Or configure an explicit checkpoint path via MODEL_CHECKPOINT:
 # (PowerShell)
-$env:MODEL_CHECKPOINT="checkpoints/compact/best_compact_unet.pt"
+$env:MODEL_CHECKPOINT="checkpoints/rice2/best_rice2_compact_unet.pt"
 uvicorn cloud_removal.api:app --host 0.0.0.0 --port 8000
 ```
 Interactive OpenAPI documentation is available at `http://localhost:8000/docs` and `http://localhost:8000/openapi.json`.
@@ -174,7 +187,7 @@ docker build -t liss4-cloud-removal-api:latest .
 docker run -d \
   --name cloud-removal-service \
   -p 8000:8000 \
-  -v ${PWD}/checkpoints/compact/best_compact_unet.pt:/models/checkpoint.pt:ro \
+  -v ${PWD}/checkpoints/rice2/best_rice2_compact_unet.pt:/models/checkpoint.pt:ro \
   -e MODEL_CHECKPOINT=/models/checkpoint.pt \
   liss4-cloud-removal-api:latest
 ```
