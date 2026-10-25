@@ -133,8 +133,9 @@ def test_load_dynamically_s3_mocked(mock_download, dummy_checkpoint: Path):
 # ============================================================================
 
 
+@patch("mlflow.set_tracking_uri")
 @patch("mlflow.pytorch.load_model")
-def test_load_from_mlflow_with_alias(mock_mlflow_load):
+def test_load_from_mlflow_with_alias(mock_mlflow_load, mock_set_tracking_uri):
     """Test MLflow model loading with model alias."""
     dummy_model = UNet(in_channels=3, out_channels=3, base_channels=4)
     mock_mlflow_load.return_value = dummy_model
@@ -149,13 +150,15 @@ def test_load_from_mlflow_with_alias(mock_mlflow_load):
     assert model is dummy_model
     assert meta["model_uri"] == "models:/cloud-removal-unet@champion"
     assert meta["identifier"] == "cloud-removal-unet@champion"
+    mock_set_tracking_uri.assert_called_once_with("http://localhost:5000")
     mock_mlflow_load.assert_called_once_with(
         "models:/cloud-removal-unet@champion", map_location=torch.device("cpu")
     )
 
 
+@patch("mlflow.set_tracking_uri")
 @patch("mlflow.pytorch.load_model")
-def test_load_from_mlflow_with_version(mock_mlflow_load):
+def test_load_from_mlflow_with_version(mock_mlflow_load, mock_set_tracking_uri):
     """Test MLflow model loading with specific version."""
     dummy_model = UNet(in_channels=3, out_channels=3, base_channels=4)
     mock_mlflow_load.return_value = dummy_model

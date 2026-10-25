@@ -1,4 +1,6 @@
-# Pix2Pix Conditional GAN (cGAN) Training Configuration (FCC Baseline)
+# EXPERIMENTAL: Pix2Pix Conditional GAN (cGAN) False-Color (FCC) Training Configuration
+# Unsupported for v1.0 production inference; retained strictly for cross-sensor research.
+# See docs/future_work/liss4_roadmap.md
 # Aligns with ISRO Resourcesat-2A LISS-IV Spectral Band Configuration:
 #   Sentinel-2 B08 (NIR, ~842nm) -> LISS-IV Band 4 (NIR, 770-860nm)
 #   Sentinel-2 B04 (Red, ~665nm) -> LISS-IV Band 3 (Red, 620-680nm)

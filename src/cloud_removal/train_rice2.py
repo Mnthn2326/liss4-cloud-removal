@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Tuple
@@ -19,6 +20,29 @@ from cloud_removal.metrics import CompoundL1SSIMLoss
 from cloud_removal.models.unet import UNet
 from cloud_removal.rice2 import RICE2Config, RICE2Dataset
 from cloud_removal.train import EarlyStopping, evaluate, set_seed, train_one_epoch
+
+
+def _get_git_commit() -> str:
+    try:
+        import subprocess
+
+        res = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+        )
+        return res.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def _compute_file_sha256(path: Union[str, Path]) -> str:
+    p = Path(path)
+    if not p.is_file():
+        return ""
+    hasher = hashlib.sha256()
+    with open(p, "rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    return hasher.hexdigest()
 
 
 def load_rice2_config(path: Path) -> Dict[str, Any]:
@@ -92,8 +116,13 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
     mlflow.set_experiment(tracking.get("experiment_name", "rice2-compact-unet"))
     best_mae = float("inf")
     history = []
+    manifest_p = Path(config.get("manifest_path", "data/manifests/rice2_manifest.json"))
+    manifest_hash = _compute_file_sha256(manifest_p)
+    config_hash = hashlib.sha256(yaml.dump(config).encode("utf-8")).hexdigest()
+    git_commit = _get_git_commit()
+
     with mlflow.start_run() as run:
-        mlflow.log_params({"dataset": "RICE2", "seed": seed, "epochs": epochs, "device": str(device), "model_params": model.count_parameters(), "smoke_test": smoke_test})
+        mlflow.log_params({"dataset": "RICE2", "seed": seed, "epochs": epochs, "device": str(device), "model_params": model.count_parameters(), "smoke_test": smoke_test, "git_commit": git_commit})
         print(f"Starting RICE2 training on {device} ({epochs} epochs, {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples)...", flush=True)
         for epoch in range(1, epochs + 1):
             train_loss, train_mae, _ = train_one_epoch(model, train_loader, criterion, optimizer, device)
@@ -101,7 +130,29 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
             metrics = {"train_loss": train_loss, "train_mae": train_mae, "val_loss": val_loss, "val_mae": val_mae, "val_psnr": val_psnr, **regional}
             mlflow.log_metrics(metrics, step=epoch)
             history.append({"epoch": epoch, **metrics})
-            payload = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "val_mae": val_mae, "val_psnr": val_psnr, "model_config": model.get_config(), "config": config, "dataset_name": "RICE2", "mlflow_run_id": run.info.run_id}
+            payload = {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "val_mae": val_mae,
+                "val_psnr": val_psnr,
+                "validation_metrics": metrics,
+                "model_config": model.get_config(),
+                "config": config,
+                "dataset_name": "RICE2",
+                "mlflow_run_id": run.info.run_id,
+                "provenance": {
+                    "git_commit": git_commit,
+                    "manifest_path": str(manifest_p),
+                    "manifest_sha256": manifest_hash,
+                    "config_sha256": config_hash,
+                    "model_architecture": "Compact U-Net (16 base channels)",
+                    "training_seed": seed,
+                    "epoch": epoch,
+                    "val_mae": val_mae,
+                    "val_psnr": val_psnr,
+                },
+            }
             torch.save(payload, latest_path)
             is_best = val_mae < best_mae
             if is_best:
