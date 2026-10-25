@@ -88,9 +88,7 @@ class IIRSPix2PixGenerator(nn.Module):
 
         # --- Decoder ---
         # d1: 512 -> 512
-        self.d1_deconv = nn.ConvTranspose2d(
-            512, 512, kernel_size=4, stride=2, padding=1, bias=True
-        )
+        self.d1_deconv = nn.ConvTranspose2d(512, 512, kernel_size=4, stride=2, padding=1, bias=True)
         self.d1_bn = nn.BatchNorm2d(512, eps=1e-3, momentum=0.01)
         self.d1_drop = nn.Dropout(0.5)
         self.d1_act = nn.ReLU(inplace=True)
@@ -126,9 +124,7 @@ class IIRSPix2PixGenerator(nn.Module):
         self.d5_act = nn.ReLU(inplace=True)
 
         # d6: (256 + 256 = 512) -> 128
-        self.d6_deconv = nn.ConvTranspose2d(
-            512, 128, kernel_size=4, stride=2, padding=1, bias=True
-        )
+        self.d6_deconv = nn.ConvTranspose2d(512, 128, kernel_size=4, stride=2, padding=1, bias=True)
         self.d6_bn = nn.BatchNorm2d(128, eps=1e-3, momentum=0.01)
         self.d6_act = nn.ReLU(inplace=True)
 

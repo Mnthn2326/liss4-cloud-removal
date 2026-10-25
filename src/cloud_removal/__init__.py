@@ -9,6 +9,7 @@ from cloud_removal.patch_dataset import (
     PatchSample,
     extract_paired_patches,
 )
+from cloud_removal.rice2 import RICE2Config, RICE2Dataset, RICE2Sample, build_rice2_manifest
 from cloud_removal.sen12mscr import (
     DEFAULT_RGB_BANDS,
     DEFAULT_RGB_NAMES,
@@ -23,7 +24,6 @@ from cloud_removal.synthetic_clouds import (
     blend_synthetic_clouds,
     generate_cloud_mask,
 )
-from cloud_removal.rice2 import RICE2Config, RICE2Dataset, RICE2Sample, build_rice2_manifest
 
 __version__ = "0.1.0"
 __all__ = [

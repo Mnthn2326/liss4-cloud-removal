@@ -69,7 +69,9 @@ def _sha256(path: Path) -> str:
 def _image_index(directory: Path) -> Dict[str, Path]:
     if not directory.is_dir():
         raise FileNotFoundError(f"RICE2 directory not found: {directory}")
-    return {path.stem: path for path in directory.iterdir() if path.suffix.lower() in _IMAGE_SUFFIXES}
+    return {
+        path.stem: path for path in directory.iterdir() if path.suffix.lower() in _IMAGE_SUFFIXES
+    }
 
 
 def _validate_image_triplet(sample_id: str, cloudy: Path, clear: Path, mask: Path) -> None:
@@ -178,7 +180,9 @@ def _load_rgb(path: Path) -> torch.Tensor:
 def _load_mask(path: Path) -> torch.Tensor:
     with Image.open(path) as image:
         array = np.asarray(image.convert("RGB"), dtype=np.uint8)
-    return torch.from_numpy(np.any(array != 0, axis=-1, keepdims=False).astype(np.float32)[None, ...])
+    return torch.from_numpy(
+        np.any(array != 0, axis=-1, keepdims=False).astype(np.float32)[None, ...]
+    )
 
 
 def _augment_pair(
@@ -191,14 +195,18 @@ def _augment_pair(
         cloudy, clear, mask = (torch.flip(tensor, dims=(-2,)) for tensor in (cloudy, clear, mask))
     turns = int(torch.randint(0, 4, ()).item())
     if turns:
-        cloudy, clear, mask = (torch.rot90(tensor, turns, dims=(-2, -1)) for tensor in (cloudy, clear, mask))
+        cloudy, clear, mask = (
+            torch.rot90(tensor, turns, dims=(-2, -1)) for tensor in (cloudy, clear, mask)
+        )
     return cloudy, clear, mask
 
 
 class RICE2Dataset(Dataset[Dict[str, Any]]):
     """PyTorch dataset for aligned RGB RICE2 samples and binary quality masks."""
 
-    def __init__(self, samples: Sequence[RICE2Sample], config: Optional[RICE2Config] = None) -> None:
+    def __init__(
+        self, samples: Sequence[RICE2Sample], config: Optional[RICE2Config] = None
+    ) -> None:
         self.samples = list(samples)
         self.config = config or RICE2Config()
 
@@ -213,10 +221,18 @@ class RICE2Dataset(Dataset[Dict[str, Any]]):
             _load_mask(sample.mask_path),
         )
         if cloudy.shape != clear.shape or cloudy.shape[-2:] != mask.shape[-2:]:
-            raise ValueError(f"RICE2 sample '{sample.sample_id}' has inconsistent image or mask dimensions")
+            raise ValueError(
+                f"RICE2 sample '{sample.sample_id}' has inconsistent image or mask dimensions"
+            )
         if self.config.augment and sample.split == "train":
             cloudy, clear, mask = _augment_pair(cloudy, clear, mask)
-        return {"cloudy": cloudy, "clear": clear, "cloud_mask": mask, "sample_id": sample.sample_id, "split": sample.split}
+        return {
+            "cloudy": cloudy,
+            "clear": clear,
+            "cloud_mask": mask,
+            "sample_id": sample.sample_id,
+            "split": sample.split,
+        }
 
     @classmethod
     def from_manifest(
@@ -235,7 +251,15 @@ class RICE2Dataset(Dataset[Dict[str, Any]]):
         for item in payload.get("samples", []):
             if split != "all" and item.get("split") != split:
                 continue
-            samples.append(RICE2Sample(item["sample_id"], base / item["cloudy_path"], base / item["clear_path"], base / item["mask_path"], item["split"]))
+            samples.append(
+                RICE2Sample(
+                    item["sample_id"],
+                    base / item["cloudy_path"],
+                    base / item["clear_path"],
+                    base / item["mask_path"],
+                    item["split"],
+                )
+            )
         if not samples:
             raise ValueError(f"No RICE2 samples for split '{split}' in {path}")
         return cls(samples=samples, config=config)
@@ -247,7 +271,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--output", default="data/manifests/rice2_manifest.json")
     parser.add_argument("--no-hashes", action="store_true")
     args = parser.parse_args(argv)
-    manifest = build_rice2_manifest(args.dataset_root, args.output, include_hashes=not args.no_hashes)
+    manifest = build_rice2_manifest(
+        args.dataset_root, args.output, include_hashes=not args.no_hashes
+    )
     print(f"Created {args.output}: {manifest['counts']}")
     return 0
 

@@ -6,12 +6,13 @@ import argparse
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
 import mlflow
+import numpy as np
 import torch
 import yaml
 from torch.utils.data import DataLoader
@@ -75,6 +76,7 @@ def create_rice2_dataloaders(config: Dict[str, Any]) -> Tuple[DataLoader, DataLo
 
     def _init_fn(worker_id: int) -> None:
         import random
+
         worker_seed = (seed + worker_id) % (2**32)
         np.random.seed(worker_seed)
         random.seed(worker_seed)
@@ -104,7 +106,11 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
     set_seed(seed)
     training_cfg = config.get("training", {})
     requested_device = str(training_cfg.get("device", "auto"))
-    device = torch.device("cuda" if requested_device == "auto" and torch.cuda.is_available() else "cpu" if requested_device == "auto" else requested_device)
+    device = torch.device(
+        "cuda"
+        if requested_device == "auto" and torch.cuda.is_available()
+        else "cpu" if requested_device == "auto" else requested_device
+    )
     train_loader, val_loader = create_rice2_dataloaders(config)
     if smoke_test:
         train_loader.dataset.samples = train_loader.dataset.samples[:8]
@@ -129,8 +135,16 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
     )
     checkpoint_dir = Path(config.get("checkpoint_dir", "checkpoints/rice2"))
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    best_name = "smoke_best_rice2_compact_unet.pt" if smoke_test else config.get("checkpoint_name", "best_rice2_compact_unet.pt")
-    latest_name = "smoke_latest_rice2_compact_unet.pt" if smoke_test else config.get("latest_checkpoint_name", "latest_rice2_compact_unet.pt")
+    best_name = (
+        "smoke_best_rice2_compact_unet.pt"
+        if smoke_test
+        else config.get("checkpoint_name", "best_rice2_compact_unet.pt")
+    )
+    latest_name = (
+        "smoke_latest_rice2_compact_unet.pt"
+        if smoke_test
+        else config.get("latest_checkpoint_name", "latest_rice2_compact_unet.pt")
+    )
     best_path = checkpoint_dir / best_name
     latest_path = checkpoint_dir / latest_name
     stopper = EarlyStopping(
@@ -148,12 +162,34 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
     git_commit = _get_git_commit()
 
     with mlflow.start_run() as run:
-        mlflow.log_params({"dataset": "RICE2", "seed": seed, "epochs": epochs, "device": str(device), "model_params": model.count_parameters(), "smoke_test": smoke_test, "git_commit": git_commit})
-        print(f"Starting RICE2 training on {device} ({epochs} epochs, {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples)...", flush=True)
+        mlflow.log_params(
+            {
+                "dataset": "RICE2",
+                "seed": seed,
+                "epochs": epochs,
+                "device": str(device),
+                "model_params": model.count_parameters(),
+                "smoke_test": smoke_test,
+                "git_commit": git_commit,
+            }
+        )
+        print(
+            f"Starting RICE2 training on {device} ({epochs} epochs, {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples)...",
+            flush=True,
+        )
         for epoch in range(1, epochs + 1):
-            train_loss, train_mae, _ = train_one_epoch(model, train_loader, criterion, optimizer, device)
+            train_loss, train_mae, _ = train_one_epoch(
+                model, train_loader, criterion, optimizer, device
+            )
             val_loss, val_mae, val_psnr, regional = evaluate(model, val_loader, criterion, device)
-            metrics = {"train_loss": train_loss, "train_mae": train_mae, "val_loss": val_loss, "val_mae": val_mae, "val_psnr": val_psnr, **regional}
+            metrics = {
+                "train_loss": train_loss,
+                "train_mae": train_mae,
+                "val_loss": val_loss,
+                "val_mae": val_mae,
+                "val_psnr": val_psnr,
+                **regional,
+            }
             mlflow.log_metrics(metrics, step=epoch)
             history.append({"epoch": epoch, **metrics})
             payload = {
@@ -190,7 +226,10 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
                 flush=True,
             )
             if stopper.step(val_mae, epoch):
-                print(f"Early stopping triggered at epoch {epoch} (patience={stopper.patience}).", flush=True)
+                print(
+                    f"Early stopping triggered at epoch {epoch} (patience={stopper.patience}).",
+                    flush=True,
+                )
                 break
         try:
             mlflow.log_artifact(str(best_path), artifact_path="checkpoints")
@@ -205,7 +244,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--smoke-test", action="store_true")
     args = parser.parse_args(argv)
     result = train_rice2_model(load_rice2_config(Path(args.config)), smoke_test=args.smoke_test)
-    print(f"Best RICE2 checkpoint: {result['best_checkpoint']} | validation MAE: {result['best_val_mae']:.6f}")
+    print(
+        f"Best RICE2 checkpoint: {result['best_checkpoint']} | validation MAE: {result['best_val_mae']:.6f}"
+    )
     return 0
 
 

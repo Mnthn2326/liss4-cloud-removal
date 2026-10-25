@@ -334,4 +334,3 @@ def test_select_model_valid(test_client):
     data = resp.json()
     assert data["status"] == "success"
     assert "best_unet.pt" in data["active_checkpoint"]
-

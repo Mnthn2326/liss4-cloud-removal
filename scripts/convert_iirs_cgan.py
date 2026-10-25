@@ -35,7 +35,7 @@ def convert_h5_to_pytorch(
     if not h5_p.is_file():
         raise FileNotFoundError(f"Source HDF5 model not found: {h5_p}")
 
-    print(f"[1/4] Initializing PyTorch IIRSPix2PixGenerator...")
+    print("[1/4] Initializing PyTorch IIRSPix2PixGenerator...")
     model = IIRSPix2PixGenerator(in_channels=3, out_channels=3, rescale_reflectance=True)
     model.eval()
 
@@ -116,9 +116,9 @@ def convert_h5_to_pytorch(
     with torch.no_grad():
         out = model(dummy)
     assert out.shape == (1, 3, 256, 256), f"Output shape mismatch: {out.shape}"
-    assert 0.0 <= out.min().item() and out.max().item() <= 1.0, (
-        f"Output range out of bounds [0, 1]: min={out.min()}, max={out.max()}"
-    )
+    assert (
+        0.0 <= out.min().item() and out.max().item() <= 1.0
+    ), f"Output range out of bounds [0, 1]: min={out.min()}, max={out.max()}"
     print(f"      Verification passed! Output in [{out.min():.4f}, {out.max():.4f}]")
 
     print(f"[4/4] Assembling full PyTorch checkpoint dictionary and saving to {out_p}...")
@@ -152,7 +152,9 @@ def convert_h5_to_pytorch(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert IIRS/ISRO Keras Pix2Pix model to PyTorch.")
+    parser = argparse.ArgumentParser(
+        description="Convert IIRS/ISRO Keras Pix2Pix model to PyTorch."
+    )
     parser.add_argument(
         "--h5-path",
         type=str,

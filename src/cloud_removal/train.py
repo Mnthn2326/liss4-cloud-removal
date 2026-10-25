@@ -708,7 +708,9 @@ def train_model(
                     metadata=model_metadata,
                 )
         except Exception as export_exc:
-            print(f"Warning: MLflow PyTorch model package export skipped ({export_exc}). The raw checkpoint artifact remains intact.")
+            print(
+                f"Warning: MLflow PyTorch model package export skipped ({export_exc}). The raw checkpoint artifact remains intact."
+            )
 
         # Handle alias / stage promotion if model registration succeeded
         if registered_successfully and registered_model_name and model_info is not None:

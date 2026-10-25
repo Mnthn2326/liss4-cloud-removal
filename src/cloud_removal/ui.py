@@ -769,7 +769,7 @@ def get_ui_html() -> str:
 
           <!-- TAB PANEL B: Upload Image -->
           <div id="tabPanelUpload" class="hidden space-y-3">
-            
+
             <!-- File Input 1: Cloudy Input Image (Required) -->
             <div>
               <div class="flex items-center justify-between mb-1.5">
@@ -906,10 +906,10 @@ def get_ui_html() -> str:
 
       <!-- WORKSPACE CARD: Controls + Visual Comparison Display -->
       <div class="bg-surface border border-borderOuter rounded-[8px] overflow-hidden shadow-sm">
-        
+
         <!-- Workspace Controls Bar -->
         <div class="px-5 py-3.5 border-b border-borderInner flex flex-wrap items-center justify-between gap-3 bg-surface">
-          
+
           <!-- Left: Workspace Heading & Synchronized Reflectance Readout -->
           <div class="flex flex-wrap items-center gap-3">
             <h2 class="font-display text-[15px] font-semibold text-ink">
@@ -924,7 +924,7 @@ def get_ui_html() -> str:
 
           <!-- Right: View Mode Segmented Toggle & Download Options -->
           <div class="flex flex-wrap items-center gap-2.5">
-            
+
             <!-- Segmented View Toggle: [⚡ Split Slider] and [⊞ Side-by-Side] -->
             <div class="inline-flex rounded-[6px] border border-borderOuter bg-subtle p-0.5" role="group">
               <button id="btnViewSplit" type="button" class="px-3 py-1 rounded-[4px] text-[12px] font-medium bg-gblueTint text-gblueActive border border-[#D2E3FC] transition flex items-center gap-1.5">
@@ -955,7 +955,7 @@ def get_ui_html() -> str:
 
         <!-- Visual Comparison Display Area -->
         <div class="p-5 bg-canvas relative min-h-[360px]">
-          
+
           <!-- Deterministic Inference Progress Overlay -->
           <div id="inferenceLoadingOverlay" class="hidden absolute inset-0 z-20 bg-surface/85 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2.5 rounded-b-[8px]">
             <div class="w-7 h-7 rounded-full border-2 border-borderOuter border-t-gblue animate-spin"></div>
@@ -969,7 +969,7 @@ def get_ui_html() -> str:
 
           <!-- VIEW 1: INTERACTIVE SPLIT SLIDER (Active by default) -->
           <div id="splitSliderView" class="flex flex-col items-center gap-3">
-            
+
             <!-- Split Slider Controls Header -->
             <div class="w-full max-w-[560px] flex flex-wrap items-center justify-between gap-2 bg-surface border border-borderOuter rounded-[6px] px-3.5 py-2">
               <div class="flex items-center gap-1.5 text-[12px]">
@@ -1021,7 +1021,7 @@ def get_ui_html() -> str:
 
           <!-- VIEW 2: SIDE-BY-SIDE (3 Equal-Width Image Containers) -->
           <div id="sideBySideView" class="hidden grid-cols-1 md:grid-cols-3 gap-4">
-            
+
             <!-- Image Container 1: Cloudy Input -->
             <div class="bg-surface border border-borderOuter rounded-[6px] overflow-hidden flex flex-col shadow-sm">
               <div class="px-3.5 py-2.5 bg-canvas border-b border-borderInner flex items-center justify-between">
@@ -1101,7 +1101,7 @@ def get_ui_html() -> str:
 
         <!-- Section A: Metrics Available (when ground truth present) -->
         <div id="gtAvailableSection" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
+
           <!-- Metric Panel 1: Mean Absolute Error (MAE) -->
           <div class="bg-canvas border border-borderInner rounded-[6px] p-4 flex flex-col justify-between">
             <div>

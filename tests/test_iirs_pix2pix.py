@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 import torch
 
 from cloud_removal.infer import load_model_from_checkpoint, predict_patch

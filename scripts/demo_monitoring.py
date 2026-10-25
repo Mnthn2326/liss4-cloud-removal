@@ -45,7 +45,9 @@ def run_monitoring_demo(host: str = "localhost", port: int = 8000, num_requests:
     try:
         with urllib.request.urlopen(f"{base_url}/ready", timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            print(f"  HTTP {resp.status}: Model={data.get('model_type')} Device={data.get('device')} Checkpoint={data.get('checkpoint')}")
+            print(
+                f"  HTTP {resp.status}: Model={data.get('model_type')} Device={data.get('device')} Checkpoint={data.get('checkpoint')}"
+            )
     except Exception as exc:
         print(f"  [ERROR] Readiness probe failed: {exc}")
         return
@@ -69,10 +71,14 @@ def run_monitoring_demo(host: str = "localhost", port: int = 8000, num_requests:
             latency = time.perf_counter() - t0
             latencies.append(latency)
             data = json.loads(resp.read().decode("utf-8"))
-            print(f"  Req #{i+1:02d} ({size}x{size}): HTTP {resp.status} in {latency*1000:.1f}ms | Mean Refl={data['prediction_mean']:.4f}")
+            print(
+                f"  Req #{i+1:02d} ({size}x{size}): HTTP {resp.status} in {latency*1000:.1f}ms | Mean Refl={data['prediction_mean']:.4f}"
+            )
         time.sleep(0.1)
 
-    print(f"  Average Inference Latency: {np.mean(latencies)*1000:.2f}ms (p95: {np.percentile(latencies, 95)*1000:.2f}ms)")
+    print(
+        f"  Average Inference Latency: {np.mean(latencies)*1000:.2f}ms (p95: {np.percentile(latencies, 95)*1000:.2f}ms)"
+    )
 
     # 4. Generating Client Error Traffic (422) for Error Rate Monitoring
     print("\n[4/4] Generating Client Rejection Edge Cases (HTTP 422 for error metrics)...")
@@ -103,7 +109,11 @@ def run_monitoring_demo(host: str = "localhost", port: int = 8000, num_requests:
         with urllib.request.urlopen(f"{base_url}/metrics", timeout=5) as resp:
             metrics_text = resp.read().decode("utf-8")
             for line in metrics_text.splitlines():
-                if line.startswith("api_requests_total") or line.startswith("model_inference_requests_total") or line.startswith("model_ready_status"):
+                if (
+                    line.startswith("api_requests_total")
+                    or line.startswith("model_inference_requests_total")
+                    or line.startswith("model_ready_status")
+                ):
                     print(" ", line)
     except Exception as exc:
         print(f"  [ERROR] Scraping /metrics failed: {exc}")
@@ -117,7 +127,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run end-to-end monitoring and inference demo")
     parser.add_argument("--host", type=str, default="localhost", help="API host")
     parser.add_argument("--port", type=int, default=8000, help="API port")
-    parser.add_argument("--requests", type=int, default=8, help="Number of valid inference requests")
+    parser.add_argument(
+        "--requests", type=int, default=8, help="Number of valid inference requests"
+    )
     args = parser.parse_args()
 
     run_monitoring_demo(host=args.host, port=args.port, num_requests=args.requests)
@@ -126,4 +138,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

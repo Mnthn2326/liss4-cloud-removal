@@ -22,7 +22,9 @@ def _mean(values: List[float]) -> Optional[float]:
 
 def _masked_mae(prediction: np.ndarray, target: np.ndarray, mask: np.ndarray) -> Optional[float]:
     selected = np.broadcast_to(mask.astype(bool), prediction.shape)
-    return float(np.mean(np.abs(prediction[selected] - target[selected]))) if selected.any() else None
+    return (
+        float(np.mean(np.abs(prediction[selected] - target[selected]))) if selected.any() else None
+    )
 
 
 def evaluate_rice2(
@@ -34,13 +36,33 @@ def evaluate_rice2(
     device_str: str = "auto",
 ) -> Dict[str, Any]:
     """Evaluate a checkpoint without augmentation on the selected RICE2 partition."""
-    device = torch.device("cuda" if device_str == "auto" and torch.cuda.is_available() else "cpu" if device_str == "auto" else device_str)
+    device = torch.device(
+        "cuda"
+        if device_str == "auto" and torch.cuda.is_available()
+        else "cpu" if device_str == "auto" else device_str
+    )
     checkpoint_file = Path(checkpoint_path)
     model, checkpoint = load_model_from_checkpoint(checkpoint_file, device=device)
-    dataset = RICE2Dataset.from_manifest(manifest_path, split=split, config=RICE2Config(augment=False))
+    dataset = RICE2Dataset.from_manifest(
+        manifest_path, split=split, config=RICE2Config(augment=False)
+    )
     if max_samples is not None:
         dataset.samples = dataset.samples[:max_samples]
-    result: Dict[str, List[float]] = {key: [] for key in ("mae", "psnr", "ssim", "baseline_mae", "baseline_psnr", "baseline_ssim", "cloud_mae", "baseline_cloud_mae", "clear_mae", "baseline_clear_mae")}
+    result: Dict[str, List[float]] = {
+        key: []
+        for key in (
+            "mae",
+            "psnr",
+            "ssim",
+            "baseline_mae",
+            "baseline_psnr",
+            "baseline_ssim",
+            "cloud_mae",
+            "baseline_cloud_mae",
+            "clear_mae",
+            "baseline_clear_mae",
+        )
+    }
     for index in range(len(dataset)):
         sample = dataset[index]
         cloudy = sample["cloudy"].numpy()
@@ -66,8 +88,21 @@ def evaluate_rice2(
         if baseline_clear is not None:
             result["baseline_clear_mae"].append(baseline_clear)
     metrics = {key: _mean(value) for key, value in result.items()}
-    metrics["mae_reduction_pct"] = (100.0 * (metrics["baseline_mae"] - metrics["mae"]) / metrics["baseline_mae"]) if metrics["baseline_mae"] else None
-    payload = {"evaluation_timestamp_utc": datetime.now(timezone.utc).isoformat(), "dataset": "RICE2", "reference_boundary": "Clear reference may be temporally separated from the cloudy observation.", "split": split, "sample_count": len(dataset), "checkpoint": str(checkpoint_file), "checkpoint_epoch": checkpoint.get("epoch"), "metrics": metrics}
+    metrics["mae_reduction_pct"] = (
+        (100.0 * (metrics["baseline_mae"] - metrics["mae"]) / metrics["baseline_mae"])
+        if metrics["baseline_mae"]
+        else None
+    )
+    payload = {
+        "evaluation_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "dataset": "RICE2",
+        "reference_boundary": "Clear reference may be temporally separated from the cloudy observation.",
+        "split": split,
+        "sample_count": len(dataset),
+        "checkpoint": str(checkpoint_file),
+        "checkpoint_epoch": checkpoint.get("epoch"),
+        "metrics": metrics,
+    }
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -75,7 +110,9 @@ def evaluate_rice2(
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Evaluate a cloud-reconstruction checkpoint on RICE2")
+    parser = argparse.ArgumentParser(
+        description="Evaluate a cloud-reconstruction checkpoint on RICE2"
+    )
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--manifest", default="data/manifests/rice2_manifest.json")
     parser.add_argument("--output", default="reports/rice2_test_metrics.json")
@@ -83,7 +120,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args(argv)
-    report = evaluate_rice2(args.checkpoint, args.manifest, args.output, args.split, args.max_samples, args.device)
+    report = evaluate_rice2(
+        args.checkpoint, args.manifest, args.output, args.split, args.max_samples, args.device
+    )
     print(json.dumps(report["metrics"], indent=2))
     return 0
 
