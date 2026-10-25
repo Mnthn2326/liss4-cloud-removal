@@ -285,6 +285,55 @@ def create_geotiff_bytes(
         return memfile.read()
 
 
+def get_available_models() -> List[Dict[str, Any]]:
+    """Return available trained model checkpoints in the repository."""
+    candidates = [
+        (
+            "checkpoints/best_unet.pt",
+            "Full U-Net (42.13 dB - Best Model)",
+            "Standard U-Net (7.76M params, compound L1+SSIM, 42.13 dB val PSNR at epoch 138).",
+        ),
+        (
+            "checkpoints/best_compact_unet_v2.pt",
+            "Compact U-Net v2 (41.09 dB - Record)",
+            "Lightweight compact U-Net (1.94M params, cosine annealing schedule, 41.09 dB val PSNR).",
+        ),
+        (
+            "checkpoints/rice2/best_rice2_compact_unet.pt",
+            "RICE2 Compact U-Net (0.048 Val MAE)",
+            "Lightweight U-Net trained on RICE2 paired benchmark (1.94M params, 0.048 val MAE).",
+        ),
+        (
+            "checkpoints/compact/best_compact_unet.pt",
+            "Compact U-Net (Epoch 5 Baseline)",
+            "Early compact baseline model (1.94M params).",
+        ),
+        (
+            "checkpoints/cgan/best_cgan_generator.pt",
+            "Pix2Pix cGAN Generator",
+            "Adversarial patch-based conditional GAN generator (11.38M params).",
+        ),
+        (
+            "checkpoints/fcc_cgan/best_fcc_cgan_generator.pt",
+            "LISS-IV FCC cGAN Generator",
+            "False Color Composite (NIR-Red-Green) cGAN generator.",
+        ),
+    ]
+    models = []
+    for rel_path, name, desc in candidates:
+        p = Path(rel_path)
+        if p.is_file():
+            models.append(
+                {
+                    "id": rel_path.replace("\\", "/"),
+                    "name": name,
+                    "description": desc,
+                    "size_mb": round(p.stat().st_size / (1024 * 1024), 2),
+                }
+            )
+    return models
+
+
 def get_available_presets() -> List[Dict[str, Any]]:
     """Return preconfigured benchmark and synthetic test presets."""
     presets = [
@@ -756,7 +805,7 @@ def get_ui_html() -> str:
       <div class="header-title">
         <h1>Satellite Optical Cloud Removal</h1>
         <div>
-          <span id="serviceBadge" class="badge badge-primary">Model: Compact U-Net</span>
+          <span id="serviceBadge" class="badge badge-primary">Model: Full U-Net (42.13 dB - Best)</span>
           <span id="sourceBadge" class="badge badge-real" style="display:none;">Real S2</span>
         </div>
       </div>
@@ -777,6 +826,21 @@ def get_ui_html() -> str:
     <div class="grid-2">
       <!-- Left Column: Controls & Upload -->
       <div>
+        <!-- Model Architecture Card -->
+        <div class="card" style="margin-bottom: 1rem;">
+          <div class="card-title">
+            <span>Neural Model Architecture</span>
+            <span id="modelParamBadge" class="badge badge-primary" style="font-size: 0.72rem;">7.76M Params</span>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.35rem;">
+            <label for="modelSelect">Active Checkpoint:</label>
+            <select id="modelSelect" onchange="onModelChange()">
+              <option value="">Loading available checkpoints...</option>
+            </select>
+          </div>
+          <p id="modelStatusMsg" style="font-size: 0.75rem; color: var(--text-muted); min-height: 1.2rem; margin-top: 0.25rem;"></p>
+        </div>
+
         <div class="card">
           <div class="card-title">
             <span>Input Selection</span>
@@ -988,9 +1052,103 @@ def get_ui_html() -> str:
 
     // Initialize UI on page load
     window.addEventListener("DOMContentLoaded", async () => {
-      await loadPresets();
+      await Promise.all([loadModelsList(), loadPresets()]);
       initSliderDrag();
     });
+
+    async function loadModelsList() {
+      try {
+        const resp = await fetch("/api/ui/models");
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const sel = document.getElementById("modelSelect");
+        if (!sel || !data.models) return;
+        sel.innerHTML = "";
+        data.models.forEach(m => {
+          const opt = document.createElement("option");
+          opt.value = m.id;
+          opt.textContent = `${m.name} (${m.size_mb} MB)`;
+          const activeNorm = (data.active_model || "").toLowerCase();
+          const idNorm = (m.id || "").toLowerCase();
+          if (activeNorm.includes(idNorm) || idNorm.includes(activeNorm)) {
+            opt.selected = true;
+          }
+          sel.appendChild(opt);
+        });
+        updateModelParamBadge(data.active_model);
+      } catch (err) {
+        console.error("Failed to load models list", err);
+      }
+    }
+
+    function updateModelParamBadge(checkpointPath) {
+      const badge = document.getElementById("modelParamBadge");
+      if (!badge) return;
+      const chk = (checkpointPath || "").toLowerCase();
+      if (chk.includes("best_unet") || chk.includes("standard_unet")) {
+        badge.innerText = "7.76M Params (150 Ep)";
+      } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
+        badge.innerText = "1.94M Params (Record)";
+      } else if (chk.includes("rice2")) {
+        badge.innerText = "1.94M Params (RICE2)";
+      } else if (chk.includes("cgan") && chk.includes("fcc")) {
+        badge.innerText = "11.38M Generator";
+      } else if (chk.includes("cgan")) {
+        badge.innerText = "11.38M Generator";
+      } else if (chk.includes("compact")) {
+        badge.innerText = "1.94M Params";
+      } else {
+        badge.innerText = "Active Model";
+      }
+    }
+
+    async function onModelChange() {
+      const sel = document.getElementById("modelSelect");
+      const modelId = sel.value;
+      if (!modelId) return;
+
+      const statusMsg = document.getElementById("modelStatusMsg");
+      statusMsg.style.color = "var(--primary)";
+      statusMsg.innerText = "⏳ Initializing model checkpoint...";
+      sel.disabled = true;
+
+      try {
+        const formData = new FormData();
+        formData.append("model_id", modelId);
+        const resp = await fetch("/api/ui/select-model", { method: "POST", body: formData });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Failed to switch model");
+
+        statusMsg.style.color = "var(--accent)";
+        statusMsg.innerText = "✓ Active model switched successfully!";
+        updateModelParamBadge(data.active_checkpoint);
+
+        let label = "Model: U-Net";
+        const chk = (data.active_checkpoint || "").toLowerCase();
+        if (chk.includes("best_unet") || chk.includes("standard_unet")) {
+          label = "Model: Full U-Net (42.13 dB - Best)";
+        } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
+          label = "Model: U-Net v2 (41.09 dB - Record)";
+        } else if (chk.includes("rice2")) {
+          label = "Model: RICE2 Compact U-Net";
+        } else if (chk.includes("cgan") && chk.includes("fcc")) {
+          label = "Model: LISS-IV FCC cGAN";
+        } else if (chk.includes("cgan")) {
+          label = "Model: Pix2Pix cGAN";
+        } else if (chk.includes("compact")) {
+          label = "Model: Compact U-Net";
+        }
+        const sBadge = document.getElementById("serviceBadge");
+        if (sBadge) sBadge.innerText = label;
+
+        setTimeout(() => { statusMsg.innerText = ""; }, 3500);
+      } catch (err) {
+        statusMsg.style.color = "var(--danger)";
+        statusMsg.innerText = `⚠️ Error: ${err.message}`;
+      } finally {
+        sel.disabled = false;
+      }
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -1114,14 +1272,14 @@ def get_ui_html() -> str:
       let activeModelLabel = "U-Net";
       if (data.checkpoint) {
         const chk = data.checkpoint.toLowerCase();
-        if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
+        if (chk.includes("best_unet") || chk.includes("standard_unet")) {
+          activeModelLabel = "Full U-Net (42.13 dB - Best)";
+        } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
           activeModelLabel = "U-Net v2 (41.09 dB - Record)";
         } else if (chk.includes("cgan") && chk.includes("fcc")) {
           activeModelLabel = "LISS-IV FCC cGAN";
         } else if (chk.includes("cgan")) {
           activeModelLabel = "Pix2Pix cGAN";
-        } else if (chk.includes("best_unet")) {
-          activeModelLabel = "Full U-Net (7.76M)";
         } else if (chk.includes("fcc")) {
           activeModelLabel = "FCC U-Net";
         } else if (chk.includes("compact")) {
@@ -1129,6 +1287,7 @@ def get_ui_html() -> str:
         }
         const sBadge = document.getElementById("serviceBadge");
         if (sBadge) sBadge.innerText = `Model: ${activeModelLabel}`;
+        updateModelParamBadge(data.checkpoint);
       }
 
       // Images in Side-by-Side Panels
@@ -1281,17 +1440,19 @@ def setup_ui(app: FastAPI) -> None:
     async def get_ui(request: Request):
         """Serve the self-contained, responsive Cloud Removal Web UI with dynamic active model badge."""
         model_manager = getattr(request.app.state, "model_manager", None)
-        badge_title = "Model: Compact U-Net"
+        badge_title = "Model: Full U-Net (42.13 dB - Best)"
         if model_manager and model_manager.checkpoint_path:
             p_str = str(model_manager.checkpoint_path).lower()
-            if "best_compact_unet_v2" in p_str or "v2" in p_str:
+            if "best_unet" in p_str or "standard_unet" in p_str:
+                badge_title = "Model: Full U-Net (42.13 dB - Best)"
+            elif "best_compact_unet_v2" in p_str or "v2" in p_str:
                 badge_title = "Model: U-Net v2 (41.09 dB - Record)"
+            elif "rice2" in p_str:
+                badge_title = "Model: RICE2 Compact U-Net"
             elif "cgan" in p_str and "fcc" in p_str:
                 badge_title = "Model: LISS-IV FCC cGAN"
             elif "cgan" in p_str:
                 badge_title = "Model: Pix2Pix cGAN"
-            elif "best_unet" in p_str:
-                badge_title = "Model: Full U-Net (7.76M)"
             elif "fcc" in p_str:
                 badge_title = "Model: FCC U-Net"
             elif "compact" in p_str:
@@ -1300,10 +1461,58 @@ def setup_ui(app: FastAPI) -> None:
                 badge_title = f"Model: {Path(model_manager.checkpoint_path).name}"
 
         html_content = get_ui_html().replace(
-            '<span id="serviceBadge" class="badge badge-primary">Model: Compact U-Net</span>',
+            '<span id="serviceBadge" class="badge badge-primary">Model: Full U-Net (42.13 dB - Best)</span>',
             f'<span id="serviceBadge" class="badge badge-primary">{badge_title}</span>',
         )
         return HTMLResponse(content=html_content, status_code=200)
+
+    @router.get("/api/ui/models", summary="Get Available Model Checkpoints")
+    async def get_models(request: Request):
+        """Return available trained model checkpoints and currently active checkpoint."""
+        model_manager = getattr(request.app.state, "model_manager", None)
+        active_ckpt = (
+            str(model_manager.checkpoint_path)
+            if model_manager and model_manager.checkpoint_path
+            else "checkpoints/best_unet.pt"
+        )
+        return JSONResponse(
+            content={
+                "models": get_available_models(),
+                "active_model": active_ckpt.replace("\\", "/"),
+            }
+        )
+
+    @router.post("/api/ui/select-model", summary="Switch Active Model Checkpoint")
+    async def select_model(request: Request, model_id: str = Form(...)):
+        """Dynamically hot-swap active model checkpoint in memory."""
+        model_manager = getattr(request.app.state, "model_manager", None)
+        if model_manager is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Inference model manager is not available.",
+            )
+
+        target_path = Path(model_id)
+        if not target_path.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Checkpoint file '{model_id}' does not exist.",
+            )
+
+        success = model_manager.load(str(target_path))
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to load checkpoint '{model_id}': {model_manager.load_error}",
+            )
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "active_checkpoint": str(model_manager.checkpoint_path).replace("\\", "/"),
+                "model_config": model_manager.model_config,
+            }
+        )
 
     @router.get("/api/ui/presets", summary="Get Preset Test Samples")
     async def get_presets():

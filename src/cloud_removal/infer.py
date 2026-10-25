@@ -412,8 +412,8 @@ def predict_tiled_raster(
 def load_model_from_checkpoint(
     checkpoint_path: Union[str, Path],
     device: Optional[torch.device] = None,
-) -> Tuple[UNet, Dict[str, Any]]:
-    """Load U-Net architecture and trained weights from a checkpoint file.
+) -> Tuple[Union[UNet, torch.nn.Module], Dict[str, Any]]:
+    """Load U-Net or Pix2Pix architecture and trained weights from a checkpoint file.
 
     Args:
         checkpoint_path: Path to .pt checkpoint.
@@ -431,15 +431,26 @@ def load_model_from_checkpoint(
 
     checkpoint = torch.load(ckpt_path, map_location=device)
     m_cfg = checkpoint.get("model_config", {})
+    model_type = m_cfg.get("model_type", "UNet")
 
-    model = UNet(
-        in_channels=m_cfg.get("in_channels", 3),
-        out_channels=m_cfg.get("out_channels", 3),
-        base_channels=m_cfg.get("base_channels", 32),
-        bilinear=m_cfg.get("bilinear", False),
-        use_sigmoid=m_cfg.get("use_sigmoid", True),
-        prior_reflectance=m_cfg.get("prior_reflectance", None),
-    )
+    model: torch.nn.Module
+    if model_type == "IIRSPix2PixGenerator":
+        from cloud_removal.models.iirs_pix2pix import IIRSPix2PixGenerator
+
+        model = IIRSPix2PixGenerator(
+            in_channels=m_cfg.get("in_channels", 3),
+            out_channels=m_cfg.get("out_channels", 3),
+            rescale_reflectance=m_cfg.get("rescale_reflectance", True),
+        )
+    else:
+        model = UNet(
+            in_channels=m_cfg.get("in_channels", 3),
+            out_channels=m_cfg.get("out_channels", 3),
+            base_channels=m_cfg.get("base_channels", 32),
+            bilinear=m_cfg.get("bilinear", False),
+            use_sigmoid=m_cfg.get("use_sigmoid", True),
+            prior_reflectance=m_cfg.get("prior_reflectance", None),
+        )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     model.eval()

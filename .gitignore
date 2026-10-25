@@ -30,6 +30,8 @@ wheels/
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.xml
+*.xml
 htmlcov/
 .tox/
 .nox/

@@ -465,9 +465,15 @@ def train_cgan_model(
 
         # Always log best checkpoint files to MLflow artifact store
         if best_g_path.is_file():
-            mlflow.log_artifact(str(best_g_path), artifact_path="checkpoints")
+            try:
+                mlflow.log_artifact(str(best_g_path), artifact_path="checkpoints")
+            except OSError as artifact_exc:
+                print(f"Warning: MLflow generator artifact logging skipped ({artifact_exc}).")
         if best_d_path.is_file():
-            mlflow.log_artifact(str(best_d_path), artifact_path="checkpoints")
+            try:
+                mlflow.log_artifact(str(best_d_path), artifact_path="checkpoints")
+            except OSError as artifact_exc:
+                print(f"Warning: MLflow discriminator artifact logging skipped ({artifact_exc}).")
 
     return {
         "best_val_mae": best_val_mae,

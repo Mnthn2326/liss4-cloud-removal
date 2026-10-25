@@ -242,7 +242,11 @@ def load_model_dynamically(
         ckpt_path_str = (
             cfg.get("checkpoint_path")
             or os.getenv("MODEL_CHECKPOINT")
-            or "checkpoints/compact/best_compact_unet.pt"
+            or (
+                "checkpoints/best_unet.pt"
+                if Path("checkpoints/best_unet.pt").is_file()
+                else "checkpoints/compact/best_compact_unet.pt"
+            )
         )
         ckpt_p = Path(ckpt_path_str)
         if not ckpt_p.is_file():

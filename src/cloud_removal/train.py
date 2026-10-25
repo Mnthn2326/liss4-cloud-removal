@@ -731,7 +731,12 @@ def train_model(
 
         # Log best checkpoint file to MLflow artifact store
         if best_checkpoint_path.is_file():
-            mlflow.log_artifact(str(best_checkpoint_path), artifact_path="checkpoints")
+            try:
+                mlflow.log_artifact(str(best_checkpoint_path), artifact_path="checkpoints")
+            except OSError as artifact_exc:
+                # Windows temporary directories can exceed the legacy path limit in MLflow's
+                # local-file artifact implementation.  The durable checkpoint remains saved.
+                print(f"Warning: MLflow checkpoint artifact logging skipped ({artifact_exc}).")
 
     return {
         "run_id": run.info.run_id,

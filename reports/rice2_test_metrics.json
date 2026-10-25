@@ -1,0 +1,22 @@
+{
+  "evaluation_timestamp_utc": "2026-10-25T11:53:04.722757+00:00",
+  "dataset": "RICE2",
+  "reference_boundary": "Clear reference may be temporally separated from the cloudy observation.",
+  "split": "test",
+  "sample_count": 148,
+  "checkpoint": "checkpoints/rice2/best_rice2_compact_unet.pt",
+  "checkpoint_epoch": 10,
+  "metrics": {
+    "mae": 0.04910242815210853,
+    "psnr": 25.121056223912777,
+    "ssim": 0.8509874659695416,
+    "baseline_mae": 0.06498111828471427,
+    "baseline_psnr": 23.332542080060875,
+    "baseline_ssim": 0.8028687566673941,
+    "cloud_mae": 0.06040407433895997,
+    "baseline_cloud_mae": 0.12944713976680183,
+    "clear_mae": 0.04327848256641143,
+    "baseline_clear_mae": 0.04883308381131674,
+    "mae_reduction_pct": 24.435852370273746
+  }
+}

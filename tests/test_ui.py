@@ -300,3 +300,38 @@ def test_download_nonexistent_session(test_client):
     """Verify 404 when downloading an invalid or expired session."""
     resp = test_client.get("/api/ui/download/invalid_session_id?format=png")
     assert resp.status_code == 404
+
+
+# ============================================================================
+# Model Checkpoint Management Endpoints
+# ============================================================================
+
+
+def test_get_available_models(test_client):
+    """Verify GET /api/ui/models returns model checkpoints and active model."""
+    resp = test_client.get("/api/ui/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "models" in data
+    assert "active_model" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) > 0
+    # Verify best_unet.pt is present
+    ids = [m["id"] for m in data["models"]]
+    assert any("best_unet" in i for i in ids)
+
+
+def test_select_model_nonexistent(test_client):
+    """Verify POST /api/ui/select-model returns 404 for nonexistent checkpoint."""
+    resp = test_client.post("/api/ui/select-model", data={"model_id": "nonexistent/model.pt"})
+    assert resp.status_code == 404
+
+
+def test_select_model_valid(test_client):
+    """Verify POST /api/ui/select-model switches active model."""
+    resp = test_client.post("/api/ui/select-model", data={"model_id": "checkpoints/best_unet.pt"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+    assert "best_unet.pt" in data["active_checkpoint"]
+

@@ -1,0 +1,37 @@
+# Production baseline for the RICE2 RGB cloud-reconstruction benchmark.
+seed: 42
+manifest_path: "data/manifests/rice2_manifest.json"
+checkpoint_dir: "checkpoints/rice2"
+checkpoint_name: "best_rice2_compact_unet.pt"
+latest_checkpoint_name: "latest_rice2_compact_unet.pt"
+
+mlflow:
+  experiment_name: "rice2-compact-unet"
+  tracking_uri: "mlruns"
+
+model:
+  in_channels: 3
+  out_channels: 3
+  base_channels: 16
+  bilinear: false
+  use_sigmoid: true
+  prior_reflectance: 0.35
+
+dataset:
+  name: "RICE2"
+  train_ratio: 0.64
+  val_ratio: 0.16
+  test_ratio: 0.20
+  seed: 42
+  augment: true
+
+training:
+  epochs: 40
+  batch_size: 4
+  learning_rate: 0.0002
+  weight_decay: 0.00001
+  ssim_weight: 0.2
+  patience: 8
+  min_delta: 0.0001
+  num_workers: 0
+  device: "auto"

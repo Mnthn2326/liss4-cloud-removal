@@ -45,7 +45,7 @@ logging.basicConfig(level=logging.INFO)
 # Dimensions and constraints
 MIN_DIM = 16
 MAX_DIM = 512
-DEFAULT_CHECKPOINT = "checkpoints/compact/best_compact_unet.pt"
+DEFAULT_CHECKPOINT = "checkpoints/best_unet.pt"
 
 
 class ServiceOverloadedError(RuntimeError):
@@ -378,6 +378,8 @@ def create_app(
                 default_p = Path(DEFAULT_CHECKPOINT)
                 if default_p.is_file():
                     manager.load(str(default_p))
+                elif Path("checkpoints/compact/best_compact_unet.pt").is_file():
+                    manager.load("checkpoints/compact/best_compact_unet.pt")
                 else:
                     manager.is_ready = False
                     manager.load_error = f"Default checkpoint not found at {default_p} and MODEL_CHECKPOINT env var not set."

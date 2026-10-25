@@ -219,6 +219,10 @@ def test_train_model_smoke_test(tmp_path: Path):
     with open(base_config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
+    manifest_p = Path(cfg.get("manifest_path", "data/raw/sen12mscr/manifest.json"))
+    if not manifest_p.is_file():
+        pytest.skip(f"SEN12MS-CR manifest not found: {manifest_p}")
+
     # Override for isolated fast smoke test
     cfg["checkpoint_dir"] = str(tmp_path / "checkpoints")
     cfg["mlflow"]["tracking_uri"] = str(tmp_path / "mlruns")
