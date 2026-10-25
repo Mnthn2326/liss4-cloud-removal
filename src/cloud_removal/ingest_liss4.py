@@ -1,8 +1,8 @@
 """Ingestion, validation, and DVC tracking preparation for authentic LISS-IV scenes.
 
-Verifies product provenance, metadata integrity, cloud cover threshold (<= 2%),
-georeferencing, and raster structure for Resourcesat-2A LISS-IV scenes acquired
-from ISRO's Bhoonidhi portal.
+STATUS: EXPERIMENTAL - Retained strictly for future cross-sensor research.
+Unsupported for deployed production inference in Version 1.0 (production baseline is RICE2).
+See docs/future_work/liss4_roadmap.md for details.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import sys
+import warnings
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
@@ -42,19 +43,22 @@ def validate_liss4_scene(
 ) -> Dict[str, Any]:
     """Validate that an extracted directory is a genuine Resourcesat-2A LISS-IV product.
 
-    Args:
-        product_dir: Path to directory containing scene files.
-        max_cloud_percent: Maximum allowable cloud cover percentage (default: 2.0%).
-        allow_missing_cloud_percent: If True, do not reject scenes where CloudPercent
-            is recorded as -NA- in official metadata.
+    Note: LISS-IV processing is experimental and unsupported for inference in v1.0.
 
     Returns:
         Dictionary of verified scene metadata, file paths, and hashes.
 
     Raises:
         IngestionError: If the product fails sensor identity, cloud threshold, or
-            band presence validation.
+            structural integrity checks.
     """
+    warnings.warn(
+        "LISS-IV ingestion is experimental and unsupported for production inference in v1.0. "
+        "Production baseline is trained on RICE2/Landsat-style RGB imagery. "
+        "See docs/future_work/liss4_roadmap.md.",
+        category=UserWarning,
+        stacklevel=2,
+    )
     if not product_dir.is_dir():
         raise IngestionError(f"Product directory does not exist: {product_dir}")
 

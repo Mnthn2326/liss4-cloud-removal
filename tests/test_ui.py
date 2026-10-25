@@ -85,7 +85,7 @@ def test_get_ui_html(test_client):
         assert "text/html" in resp.headers["content-type"]
         html = resp.text
         # Verify key elements
-        assert "Satellite Optical Cloud Removal" in html
+        assert "Remote-Sensing Optical Cloud Reconstruction" in html
         assert "LISS-IV" in html
         assert "Sentinel-2" in html
         assert "Split Slider" in html

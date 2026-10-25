@@ -1,4 +1,4 @@
-"""Geospatial raster inspection utilities using Rasterio for LISS-IV imagery."""
+"""Geospatial raster inspection utilities using Rasterio for remote-sensing imagery."""
 
 from pathlib import Path
 from typing import Any, Dict, List, Union

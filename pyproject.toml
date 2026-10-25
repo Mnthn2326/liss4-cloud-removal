@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "liss4-cloud-removal"
 version = "0.1.0"
-description = "Minimal demonstration MLOps pipeline for cloud removal on satellite imagery (Bhoonidhi / ISRO LISS-IV)"
+description = "Remote-Sensing Optical Cloud Reconstruction — MLOps pipeline and Compact U-Net baseline on RICE2/Landsat-style RGB imagery"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

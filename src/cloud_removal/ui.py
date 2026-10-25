@@ -459,617 +459,818 @@ def load_preset_data(preset_id: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, 
 
 def get_ui_html() -> str:
     """Return the self-contained HTML/CSS/JS document for the Cloud Removal UI."""
-    return """<!DOCTYPE html>
+    return r"""<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LISS-IV / Sentinel-2 Optical Cloud Removal</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remote-Sensing Optical Cloud Reconstruction — Landsat/Sentinel-2 RGB Inference</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans (Headings/UI), Roboto (Body), Roboto Mono (Telemetry/Metrics) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Roboto+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Plus Jakarta Sans"', 'Roboto', 'sans-serif'],
+            sans: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['"Roboto Mono"', 'monospace'],
+          },
+          colors: {
+            // 60% Dominant Neutral Surfaces
+            canvas: '#F8F9FA',
+            surface: '#FFFFFF',
+            subtle: '#F1F3F4',
+            borderOuter: '#DADCE0',
+            borderInner: '#E8EAED',
+            // 30% Typography & Ink Hierarchy
+            ink: '#202124',
+            inkBody: '#3C4043',
+            slate: '#5F6368',
+            muted: '#70757A',
+            // 10% Intentional Accent (Google Blue)
+            gblue: '#1A73E8',
+            gblueHover: '#1557B0',
+            gblueActive: '#1967D2',
+            gblueTint: '#E8F0FE',
+            // Semantic Warning (Understated Google Cloud Callout)
+            warnBg: '#FEF7E0',
+            warnBorder: '#FCE8B2',
+            warnAccent: '#F9AB00',
+            warnInk: '#B06000',
+            // Semantic Success
+            successBg: '#E6F4EA',
+            successBorder: '#CEEAD6',
+            successAccent: '#34A853',
+            successInk: '#137333',
+          }
+        }
+      }
+    }
+  </script>
+
   <style>
-    :root {
-      --bg: #0b1120;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --primary: #38bdf8;
-      --primary-hover: #0284c7;
-      --accent: #10b981;
-      --warning-bg: #451a03;
-      --warning-border: #d97706;
-      --warning-text: #fde68a;
-      --danger: #ef4444;
-      --radius: 8px;
+    * {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-      padding: 1rem;
-    }
-    .container { max-width: 1200px; margin: 0 auto; }
-    header {
-      border-bottom: 1px solid var(--card-border);
-      padding-bottom: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .header-title { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; }
-    h1 { font-size: 1.6rem; font-weight: 700; color: #fff; }
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.6rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: 9999px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-primary { background: rgba(56, 189, 248, 0.15); color: var(--primary); border: 1px solid var(--primary); }
-    .badge-synth { background: rgba(217, 119, 6, 0.2); color: #fbbf24; border: 1px solid #d97706; }
-    .badge-real { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #059669; }
-
-    /* Advisory Banner */
-    .notice-banner {
-      background: var(--warning-bg);
-      border: 1px solid var(--warning-border);
-      color: var(--warning-text);
-      padding: 0.85rem 1.1rem;
-      border-radius: var(--radius);
-      margin-bottom: 1.5rem;
-      font-size: 0.85rem;
-    }
-    .notice-banner strong { color: #fff; font-weight: 600; }
-
-    /* Layout Grid */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 1.5rem;
-    }
-    @media (max-width: 900px) {
-      .grid-2 { grid-template-columns: 1fr; }
+      background-color: #F8F9FA;
+      color: #202124;
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      overflow-x: hidden;
     }
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-    .card-title {
-      font-size: 1.05rem;
-      font-weight: 600;
-      margin-bottom: 0.85rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--card-border);
-      padding-bottom: 0.5rem;
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
     }
 
-    /* Tabs */
-    .tab-nav {
-      display: flex;
-      border-bottom: 1px solid var(--card-border);
-      margin-bottom: 1rem;
+    /* Clean subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-    .tab-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      padding: 0.5rem 0.8rem;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      border-bottom: 2px solid transparent;
+    ::-webkit-scrollbar-track {
+      background: #F8F9FA;
     }
-    .tab-btn.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
+    ::-webkit-scrollbar-thumb {
+      background: #DADCE0;
+      border-radius: 3px;
     }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-
-    /* Form Inputs */
-    .form-group { margin-bottom: 1rem; }
-    label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.3rem; }
-    select, input[type="file"] {
-      width: 100%;
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      color: var(--text);
-      padding: 0.5rem;
-      border-radius: 4px;
-      font-size: 0.85rem;
-    }
-    .dropzone {
-      border: 2px dashed var(--card-border);
-      border-radius: var(--radius);
-      padding: 1.2rem;
-      text-align: center;
-      cursor: pointer;
-      background: #0f172a;
-      transition: border-color 0.2s;
-    }
-    .dropzone:hover { border-color: var(--primary); }
-    .dropzone p { font-size: 0.8rem; color: var(--text-muted); }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.4rem;
-      background: var(--primary);
-      color: #0b1120;
-      font-weight: 600;
-      font-size: 0.85rem;
-      padding: 0.55rem 1rem;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      width: 100%;
-      transition: background 0.2s;
-    }
-    .btn:hover { background: var(--primary-hover); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-secondary {
-      background: #334155;
-      color: var(--text);
-    }
-    .btn-secondary:hover { background: #475569; }
-
-    /* Visual Workspace */
-    .view-toggle-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    .toggle-group { display: flex; gap: 0.4rem; }
-    .btn-toggle {
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      color: var(--text-muted);
-      padding: 0.35rem 0.75rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    .btn-toggle.active {
-      background: var(--primary);
-      color: #0b1120;
-      font-weight: 600;
-      border-color: var(--primary);
+    ::-webkit-scrollbar-thumb:hover {
+      background: #BDC1C6;
     }
 
-    /* Comparison Split Slider */
-    .slider-container {
-      position: relative;
-      width: 100%;
-      max-width: 512px;
-      aspect-ratio: 1 / 1;
-      margin: 0 auto;
-      overflow: hidden;
-      border-radius: var(--radius);
-      border: 1px solid var(--card-border);
-      user-select: none;
-      background: #000;
-    }
-    .slider-img {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      object-fit: contain;
-      pointer-events: none;
-    }
-    .slider-img-top {
-      clip-path: polygon(0 0, 50% 0, 50% 100%, 0 100%);
-    }
-    .slider-divider {
-      position: absolute;
-      top: 0; bottom: 0;
-      left: 50%;
-      width: 3px;
-      background: #38bdf8;
-      cursor: ew-resize;
-      box-shadow: 0 0 8px rgba(0,0,0,0.8);
-    }
-    .slider-handle {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 32px; height: 32px;
-      background: #38bdf8;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #0b1120;
-      font-size: 0.75rem;
-      font-weight: bold;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-    }
-    .slider-range {
-      width: 100%;
-      max-width: 512px;
-      margin: 0.8rem auto 0 auto;
+    /* Crisp pixelated rendering for Earth Observation rasters */
+    canvas.eo-canvas {
+      image-rendering: pixelated;
+      cursor: crosshair;
       display: block;
     }
-    .slider-tags {
-      display: flex;
-      justify-content: space-between;
-      max-width: 512px;
-      margin: 0.3rem auto 1rem auto;
-      font-size: 0.75rem;
-      color: var(--text-muted);
+
+    /* Google Material Outlined Select Focus Ring */
+    .g-select:focus {
+      outline: none;
+      border-color: #1A73E8;
+      box-shadow: 0 0 0 1px #1A73E8;
     }
 
-    /* Side-by-Side Panels */
-    .panels-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
+    /* Subtle highlight animation when cross-sensor notice is triggered */
+    @keyframes calloutHighlight {
+      0%, 100% { background-color: #FEF7E0; }
+      50% { background-color: #FDE293; }
     }
-    .panel-box {
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 0.75rem;
-      text-align: center;
-    }
-    .panel-box img {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      object-fit: contain;
-      border-radius: 4px;
-      background: #000;
-    }
-    .panel-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      margin-top: 0.5rem;
-      color: var(--text);
-    }
-    .panel-subtitle {
-      font-size: 0.7rem;
-      color: var(--text-muted);
+    .callout-flash {
+      animation: calloutHighlight 0.9s ease-in-out 2;
     }
 
-    /* Info & Metrics Cards */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 0.75rem;
-      margin-top: 0.5rem;
-    }
-    .metric-card {
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      border-radius: 4px;
-      padding: 0.6rem 0.75rem;
-    }
-    .metric-label { font-size: 0.7rem; color: var(--text-muted); }
-    .metric-value { font-size: 1.15rem; font-weight: 700; color: #fff; }
-    .metric-delta { font-size: 0.75rem; font-weight: 600; }
-    .delta-pos { color: #34d399; }
-    .delta-neg { color: #f87171; }
-
-    .meta-list { font-size: 0.8rem; }
-    .meta-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.35rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .meta-k { color: var(--text-muted); }
-    .meta-v { font-weight: 500; text-align: right; word-break: break-all; }
-
-    /* Download Row */
-    .download-row {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-      margin-top: 1rem;
-    }
-    .btn-download {
-      flex: 1;
-      min-width: 150px;
-    }
-
-    /* Loading Spinner */
-    .spinner {
-      display: none;
-      width: 20px; height: 20px;
-      border: 2px solid rgba(0,0,0,0.2);
-      border-top-color: #000;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .empty-state {
-      padding: 3rem 1rem;
-      text-align: center;
-      color: var(--text-muted);
+    /* Range slider modern styling */
+    input[type=range] {
+      accent-color: #1A73E8;
     }
   </style>
 </head>
-<body>
-  <div class="container">
-    <header>
-      <div class="header-title">
-        <h1>Satellite Optical Cloud Removal</h1>
+<body class="min-h-screen flex flex-col bg-canvas text-ink selection:bg-gblueTint selection:text-gblueActive">
+
+  <!-- ===================================================================== -->
+  <!-- 1. TOP APPLICATION HEADER (Google Cloud / Earth Engine Workbench Bar) -->
+  <!-- ===================================================================== -->
+  <header class="sticky top-0 z-30 bg-surface border-b border-borderOuter min-h-[64px] px-6 flex items-center shadow-sm">
+    <div class="max-w-[1600px] w-full mx-auto py-2.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+
+      <!-- Left: Minimal Geometric Earth Engine-inspired SVG Mark + Title & Subtitle -->
+      <div class="flex items-start sm:items-center gap-3.5">
+        <div class="w-9 h-9 rounded-[6px] bg-gblueTint border border-[#D2E3FC] flex items-center justify-center shrink-0 mt-0.5 sm:mt-0" aria-hidden="true">
+          <!-- Minimalist Geometric Satellite / Grid SVG in #1A73E8 -->
+          <svg class="w-5 h-5 text-gblue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4" />
+          </svg>
+        </div>
         <div>
-          <span id="serviceBadge" class="badge badge-primary">Model: Full U-Net (42.13 dB - Best)</span>
-          <span id="sourceBadge" class="badge badge-real" style="display:none;">Real S2</span>
+          <h1 class="font-display text-[18px] font-semibold text-ink leading-snug tracking-[-0.01em]">
+            Remote-Sensing Optical Cloud Reconstruction
+          </h1>
+          <p class="text-[13px] text-slate leading-normal mt-0.5">
+            Deterministic optical cloud reconstruction service for RICE2 & Landsat-style RGB observations (<span class="font-mono text-[12px] text-inkBody">B04, B03, B02</span>)
+          </p>
         </div>
       </div>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
-        Deterministic optical cloud removal inference service for Sentinel-2 surface reflectance (RGB: B04, B03, B02).
-      </p>
-    </header>
 
-    <!-- Scientific Advisory Banner -->
-    <div class="notice-banner">
-      <strong>⚠️ Sensor & Domain Boundary Notice:</strong> The active model was trained exclusively on
-      <strong>Sentinel-2 optical surface reflectance (SEN12MS-CR benchmark, 10m GSD, B04/B03/B02 RGB)</strong>.
-      Cross-sensor inference on <strong>ISRO Resourcesat-2A LISS-IV imagery</strong> (5m GSD, Green/Red/NIR bands without Blue channel)
-      remains unvalidated due to spectral band mismatch and unresolved sensor calibrations.
-      Synthetic cloud examples are generated with Perlin/Gaussian turbulence simulation.
+      <!-- Right: Active Model Status Indicators (Restrained Technical Chips) -->
+      <div class="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0">
+        <!-- Status Indicator 1: Model Chip -->
+        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-[4px] bg-gblueTint border border-[#D2E3FC] text-gblueActive font-mono text-[11px] font-medium tabular-nums">
+          <span class="w-1.5 h-1.5 rounded-full bg-gblue animate-pulse"></span>
+          <span id="serviceBadge">Model: Full U-Net (42.13 dB - Best)</span>
+        </div>
+
+        <!-- Status Indicator 2: Real / Synthetic S2 Chip -->
+        <div id="sourceBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-subtle border border-borderOuter text-inkBody font-mono text-[11px] font-medium">
+          <span id="sourceBadgeText">REAL OPTICAL S2</span>
+        </div>
+      </div>
+
     </div>
+  </header>
 
-    <div class="grid-2">
-      <!-- Left Column: Controls & Upload -->
-      <div>
-        <!-- Model Architecture Card -->
-        <div class="card" style="margin-bottom: 1rem;">
-          <div class="card-title">
-            <span>Neural Model Architecture</span>
-            <span id="modelParamBadge" class="badge badge-primary" style="font-size: 0.72rem;">7.76M Params</span>
+  <!-- ===================================================================== -->
+  <!-- 2. SENSOR & DOMAIN BOUNDARY NOTICE (Google Cloud Inline Callout)      -->
+  <!-- ===================================================================== -->
+  <section class="max-w-[1600px] w-full mx-auto px-6 pt-4">
+    <div id="domainNoticeCallout" class="bg-warnBg border border-warnBorder border-l-[3px] border-l-warnAccent rounded-[6px] px-4 py-3 transition-colors">
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <!-- Google Material Warning Icon in #B06000 -->
+          <svg class="w-4 h-4 text-warnInk shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+          </svg>
+          <div class="text-[13px] leading-relaxed text-inkBody">
+            <span class="font-medium text-warnInk mr-1">Sensor & Domain Boundary Notice:</span>
+            <span>
+              The production baseline is officially evaluated on the <span class="font-mono text-[12px] text-ink">RICE2</span> benchmark (Landsat-style RGB surface reflectance). Output is an <span class="font-medium text-ink">estimated surface reconstruction</span>; opaque optical cloud penetration is physically impossible. Historical ISRO LISS-IV sensor tooling is classified as <span class="font-medium text-ink">experimental</span> and unsupported for production inference (see <code class="font-mono text-[11px]">docs/future_work/liss4_roadmap.md</code>).
+            </span>
           </div>
-          <div class="form-group" style="margin-bottom: 0.35rem;">
-            <label for="modelSelect">Active Checkpoint:</label>
-            <select id="modelSelect" onchange="onModelChange()">
+        </div>
+
+        <button id="toggleBandSpecBtn" type="button" class="shrink-0 self-start md:self-center text-[12px] font-medium text-warnInk hover:underline inline-flex items-center gap-1">
+          <span id="toggleBandSpecText">View band comparison</span>
+          <svg id="toggleBandSpecIcon" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Collapsible Technical Band Comparison Table -->
+      <div id="bandSpecDrawer" class="hidden mt-3 pt-3 border-t border-warnBorder grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+        <div class="bg-surface border border-borderOuter rounded-[4px] p-2.5">
+          <div class="font-medium text-ink mb-1 flex items-center justify-between">
+            <span>Sentinel-2 MSI (Validated Training Domain)</span>
+            <span class="font-mono text-[11px] text-gblueActive bg-gblueTint px-1.5 py-0.5 rounded">10m GSD • True RGB</span>
+          </div>
+          <p class="text-slate font-mono text-[11px] leading-relaxed">
+            B04 (Red: 665 nm) • B03 (Green: 560 nm) • B02 (Blue: 490 nm) — L2A Bottom-of-Atmosphere reflectance [0.0, 1.0].
+          </p>
+        </div>
+        <div class="bg-surface border border-borderOuter rounded-[4px] p-2.5">
+          <div class="font-medium text-ink mb-1 flex items-center justify-between">
+            <span>ISRO Resourcesat-2A LISS-IV (Unvalidated Domain)</span>
+            <span class="font-mono text-[11px] text-warnInk bg-warnBg px-1.5 py-0.5 rounded">5.8m GSD • NIR-R-G FCC</span>
+          </div>
+          <p class="text-slate font-mono text-[11px] leading-relaxed">
+            B2 (Green: 520–590 nm) • B3 (Red: 620–680 nm) • B4 (NIR: 770–860 nm) — Lacks optical Blue channel (B02).
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- 3. MAIN WORKSPACE LAYOUT (380px Left Inspector + Fluid Right Canvas)  -->
+  <!-- ===================================================================== -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-6 py-4 flex flex-col lg:flex-row gap-5 items-start">
+
+    <!-- =================================================================== -->
+    <!-- LEFT PANEL: MODEL AND INPUT CONFIGURATION (Fixed 380px on Desktop)  -->
+    <!-- =================================================================== -->
+    <aside class="w-full lg:w-[380px] shrink-0 flex flex-col gap-4">
+
+      <!-- SECTION 1: Neural Model Architecture Card -->
+      <div class="bg-surface border border-borderOuter rounded-[8px] overflow-hidden shadow-sm">
+        <div class="px-5 py-4 border-b border-borderInner">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="font-display text-[14px] font-semibold text-ink">
+              Neural Model Architecture
+            </h2>
+            <span id="modelParamBadge" class="font-mono text-[11px] font-medium text-slate bg-subtle border border-borderInner px-2 py-0.5 rounded-[4px] tabular-nums">
+              7.76M PARAMS (150 EP)
+            </span>
+          </div>
+
+          <label for="modelSelect" class="block text-[12px] font-medium text-slate mb-1.5">
+            Active checkpoint
+          </label>
+          <div class="relative">
+            <select id="modelSelect" class="g-select w-full appearance-none bg-surface border border-borderOuter hover:border-slate rounded-[6px] pl-3 pr-8 py-2 text-[12px] font-mono text-ink transition cursor-pointer">
               <option value="">Loading available checkpoints...</option>
             </select>
+            <svg class="w-4 h-4 text-slate absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
           </div>
-          <p id="modelStatusMsg" style="font-size: 0.75rem; color: var(--text-muted); min-height: 1.2rem; margin-top: 0.25rem;"></p>
-        </div>
-
-        <div class="card">
-          <div class="card-title">
-            <span>Input Selection</span>
-          </div>
-
-          <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('tabPreset')">Benchmark Presets</button>
-            <button class="tab-btn" onclick="switchTab('tabUpload')">Upload Image</button>
-          </div>
-
-          <!-- Tab 1: Presets -->
-          <div id="tabPreset" class="tab-content active">
-            <div class="form-group">
-              <label for="presetSelect">Select Test Sample:</label>
-              <select id="presetSelect" onchange="onPresetChange()">
-                <option value="">Loading presets...</option>
-              </select>
-            </div>
-            <p id="presetDesc" style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; min-height: 2.5rem;"></p>
-            <button id="btnRunPreset" class="btn" onclick="runPresetInference()">
-              <div class="spinner" id="spinnerPreset"></div>
-              <span>Run Cloud Removal</span>
-            </button>
-          </div>
-
-          <!-- Tab 2: Upload -->
-          <div id="tabUpload" class="tab-content">
-            <div class="form-group">
-              <label>Cloudy Input Image (Required):</label>
-              <div class="dropzone" onclick="document.getElementById('cloudyFileInput').click()">
-                <p id="cloudyFileLabel">📁 Click to choose GeoTIFF (.tif) or RGB (.png, .jpg)</p>
-                <input type="file" id="cloudyFileInput" accept=".tif,.tiff,.png,.jpg,.jpeg" style="display:none;" onchange="onFileSelected(this, 'cloudyFileLabel')">
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Clear Reference Scene (Optional - for MAE/PSNR evaluation):</label>
-              <div class="dropzone" onclick="document.getElementById('clearFileInput').click()">
-                <p id="clearFileLabel">📁 Optional ground-truth (.tif, .png)</p>
-                <input type="file" id="clearFileInput" accept=".tif,.tiff,.png,.jpg,.jpeg" style="display:none;" onchange="onFileSelected(this, 'clearFileLabel')">
-              </div>
-            </div>
-
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-              • <strong>Supported formats:</strong> 13-band Sentinel-2 GeoTIFF (extracts B04/B03/B02), 3-band RGB GeoTIFF, or standard 3-channel RGB image.<br>
-              • <strong>Single-band rasters</strong> (e.g. raw LISS-IV BAND2/3/4) are rejected.
-            </div>
-
-            <button id="btnRunUpload" class="btn" onclick="runUploadInference()">
-              <div class="spinner" id="spinnerUpload"></div>
-              <span>Upload & Run Model</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Metadata & Status Card -->
-        <div class="card" id="metaCard" style="display:none;">
-          <div class="card-title">
-            <span>Inference Metadata</span>
-            <span id="latencyBadge" style="font-size: 0.75rem; color: var(--primary); font-weight: bold;">-- ms</span>
-          </div>
-          <div class="meta-list">
-            <div class="meta-item">
-              <span class="meta-k">Data Source:</span>
-              <span class="meta-v" id="metaSource">--</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-k">Type / Label:</span>
-              <span class="meta-v" id="metaTypeLabel">--</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-k">Image Dimensions:</span>
-              <span class="meta-v" id="metaDims">--</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-k">CRS (Spatial Reference):</span>
-              <span class="meta-v" id="metaCrs">--</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-k">Resolution:</span>
-              <span class="meta-v" id="metaRes">--</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-k">Model Checkpoint:</span>
-              <span class="meta-v" id="metaCheckpoint">--</span>
-            </div>
-          </div>
+          <p id="modelStatusMsg" class="text-[12px] text-slate mt-2 min-h-[1.2rem]"></p>
         </div>
       </div>
 
-      <!-- Right Column: Visual Workspace & Accuracy -->
-      <div>
-        <div class="card">
-          <div class="view-toggle-bar">
-            <div class="card-title" style="border:none; margin:0; padding:0;">
-              <span>Reconstruction Workspace</span>
+      <!-- SECTION 2: Input Selection & File Configuration Card -->
+      <div class="bg-surface border border-borderOuter rounded-[8px] overflow-hidden shadow-sm">
+        <div class="px-5 py-4">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-display text-[14px] font-semibold text-ink">
+              Input Selection
+            </h2>
+            <span class="font-mono text-[11px] text-muted">Sentinel-2 RGB</span>
+          </div>
+
+          <!-- Google Material Tabs: Benchmark Presets | Upload Image -->
+          <div class="flex border-b border-borderOuter mb-4 -mx-5 px-5">
+            <button id="tabBtnPresets" type="button" class="pb-2.5 px-3 text-[13px] font-medium text-gblue border-b-2 border-gblue transition">
+              Benchmark Presets
+            </button>
+            <button id="tabBtnUpload" type="button" class="pb-2.5 px-3 text-[13px] font-medium text-slate hover:text-ink border-b-2 border-transparent transition">
+              Upload Image
+            </button>
+          </div>
+
+          <!-- TAB PANEL A: Benchmark Presets (Active by Default) -->
+          <div id="tabPanelPresets" class="space-y-3">
+            <div>
+              <label for="presetSelect" class="block text-[12px] font-medium text-slate mb-1.5">
+                Select a paired Sentinel-2 SEN12MS-CR validation tile:
+              </label>
+              <div class="relative">
+                <select id="presetSelect" class="g-select w-full appearance-none bg-surface border border-borderOuter hover:border-slate rounded-[6px] pl-3 pr-8 py-2 text-[12px] font-mono text-ink transition cursor-pointer">
+                  <option value="">Loading presets...</option>
+                </select>
+                <svg class="w-4 h-4 text-slate absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                </svg>
+              </div>
             </div>
-            <div class="toggle-group">
-              <button id="btnToggleSlider" class="btn-toggle active" onclick="setViewMode('slider')">⚡ Split Slider</button>
-              <button id="btnTogglePanels" class="btn-toggle" onclick="setViewMode('panels')">⊞ Side-by-Side</button>
+
+            <!-- Dynamic Preset Tile Rows -->
+            <div id="presetTilesContainer" class="space-y-2">
+              <!-- Populated dynamically via JS -->
+            </div>
+
+            <div id="presetDesc" class="text-[12px] text-slate bg-subtle border border-borderInner rounded-[6px] p-3 min-h-[2.8rem] leading-relaxed">
+              Select a benchmark sample to see details…
+            </div>
+
+            <button id="btnRunPreset" type="button" class="w-full h-[40px] rounded-[6px] bg-gblue hover:bg-gblueHover active:bg-gblueActive text-surface font-display text-[13px] font-medium flex items-center justify-center gap-2 transition shadow-sm">
+              <svg id="spinnerPreset" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" viewBox="0 0 20 20"></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+              </svg>
+              <span id="runPresetBtnText">Run Cloud Removal</span>
+            </button>
+          </div>
+
+          <!-- TAB PANEL B: Upload Image -->
+          <div id="tabPanelUpload" class="hidden space-y-3">
+            
+            <!-- File Input 1: Cloudy Input Image (Required) -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[12px] font-medium text-inkBody">Cloudy Input Image</span>
+                <span class="text-[11px] font-medium text-gblueActive bg-gblueTint px-1.5 py-0.5 rounded-[4px]">Required</span>
+              </div>
+              <div class="flex items-center gap-3 p-2.5 rounded-[6px] bg-surface border border-borderOuter hover:border-[#BDC1C6] transition">
+                <canvas id="thumbCloudy" width="64" height="64" class="w-11 h-11 rounded-[4px] border border-borderOuter shrink-0 bg-subtle"></canvas>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    <span id="cloudyFileName" class="font-mono text-[12px] font-medium text-ink truncate">Choose cloudy image...</span>
+                    <span id="cloudyFileSize" class="font-mono text-[11px] text-muted tabular-nums"></span>
+                  </div>
+                  <div class="text-[11px] text-slate mt-0.5">
+                    3-channel optical RGB • 512 × 512 px max
+                  </div>
+                </div>
+                <label class="cursor-pointer shrink-0 text-[12px] font-medium text-gblue hover:bg-gblueTint px-2.5 py-1 rounded-[4px] transition">
+                  Browse
+                  <input id="cloudyFileInput" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" class="hidden" />
+                </label>
+              </div>
+            </div>
+
+            <!-- File Input 2: Clear Reference Scene (Optional) -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[12px] font-medium text-inkBody">Clear Reference Scene</span>
+                <span class="text-[11px] text-muted">Optional</span>
+              </div>
+              <div class="flex items-center gap-3 p-2.5 rounded-[6px] bg-surface border border-borderOuter hover:border-[#BDC1C6] transition">
+                <canvas id="thumbClear" width="64" height="64" class="w-11 h-11 rounded-[4px] border border-borderOuter shrink-0 bg-subtle"></canvas>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    <span id="clearFileName" class="font-mono text-[12px] font-medium text-ink truncate">Optional clear target...</span>
+                    <span id="clearFileSize" class="font-mono text-[11px] text-muted tabular-nums"></span>
+                  </div>
+                  <div class="text-[11px] text-slate mt-0.5">
+                    For MAE and PSNR evaluation
+                  </div>
+                </div>
+                <label class="cursor-pointer shrink-0 text-[12px] font-medium text-gblue hover:bg-gblueTint px-2.5 py-1 rounded-[4px] transition">
+                  Browse
+                  <input id="clearFileInput" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" class="hidden" />
+                </label>
+              </div>
+            </div>
+
+            <!-- Format Information Specification Well -->
+            <div class="mt-3.5 p-3 rounded-[6px] bg-subtle border border-borderInner text-[12px] text-slate leading-relaxed">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-medium text-inkBody">Supported formats</span>
+                <button id="testSingleBandBtn" type="button" class="text-[11px] font-medium text-gblue hover:underline">
+                  Test 1-band raster rejection
+                </button>
+              </div>
+              <p class="text-[11.5px] text-slate">
+                Supports <span class="font-medium text-inkBody">13-band Sentinel-2 GeoTIFF</span>, <span class="font-medium text-inkBody">3-band RGB GeoTIFF</span>, and <span class="font-medium text-inkBody">standard 3-channel RGB images</span>. Single-band rasters are rejected.
+              </p>
+              <!-- Validation Callout for Single-Band Rejection Demo -->
+              <div id="singleBandAlert" class="hidden mt-2 p-2 rounded-[4px] bg-[#FCE8E6] border border-[#FAD2CF] text-[#C5221F] font-mono text-[11px]">
+                Rejected input <span class="font-semibold">dem_single_band.tif</span> (shape: 1 × 512 × 512). Model requires 3 optical channels (B04, B03, B02). Isolated LISS-IV single-band rasters (BAND2/3/4) lack cross-sensor calibration.
+              </div>
+            </div>
+
+            <!-- Action Button: [Upload & Run Model] -->
+            <button id="btnRunUpload" type="button" class="w-full h-[40px] rounded-[6px] bg-gblue hover:bg-gblueHover active:bg-gblueActive text-surface font-display text-[13px] font-medium flex items-center justify-center gap-2 transition shadow-sm">
+              <svg id="spinnerUpload" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" viewBox="0 0 20 20"></svg>
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+              </svg>
+              <span id="runUploadBtnText">Upload & Run Model</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SECTION 3: Inference Metadata (Google Cloud Property Table) -->
+      <div id="metaCard" class="bg-surface border border-borderOuter rounded-[8px] overflow-hidden shadow-sm">
+        <div class="px-5 py-4">
+          <div class="flex items-center justify-between mb-2.5">
+            <h2 class="font-display text-[14px] font-semibold text-ink">
+              Inference Metadata
+            </h2>
+            <span class="font-mono text-[11px] text-muted">Tensor Telemetry</span>
+          </div>
+
+          <dl class="divide-y divide-borderInner border-t border-b border-borderInner text-[12px]">
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate">Execution Time</dt>
+              <dd id="metaExecTime" class="font-mono font-medium text-ink tabular-nums">-- ms CPU</dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate shrink-0">Data Source</dt>
+              <dd id="metaDataSource" class="font-mono text-ink text-right truncate max-w-[210px]">--</dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate">Type / Label</dt>
+              <dd id="metaTypeLabel" class="text-right">
+                <span class="font-mono text-[11px] font-medium px-2 py-0.5 rounded-[4px] bg-gblueTint text-gblueActive">
+                  REAL SCENE
+                </span>
+              </dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate shrink-0">Image Dimensions</dt>
+              <dd id="metaDimensions" class="font-mono text-ink tabular-nums text-right">--</dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate">CRS</dt>
+              <dd id="metaCRS" class="font-mono text-ink text-right truncate max-w-[200px]">--</dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate">Resolution</dt>
+              <dd id="metaResolution" class="font-mono text-ink text-right">--</dd>
+            </div>
+            <div class="py-2 flex items-center justify-between gap-3">
+              <dt class="text-slate shrink-0">Model Checkpoint</dt>
+              <dd id="metaCheckpoint" class="font-mono text-inkBody bg-subtle px-1.5 py-0.5 rounded-[4px] truncate max-w-[205px] text-right" title="checkpoints/best_unet.pt">
+                checkpoints/best_unet.pt
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- =================================================================== -->
+    <!-- RIGHT PANEL: RECONSTRUCTION WORKSPACE AND EVALUATION                -->
+    <!-- =================================================================== -->
+    <section class="flex-1 min-w-0 w-full flex flex-col gap-5">
+
+      <!-- WORKSPACE CARD: Controls + Visual Comparison Display -->
+      <div class="bg-surface border border-borderOuter rounded-[8px] overflow-hidden shadow-sm">
+        
+        <!-- Workspace Controls Bar -->
+        <div class="px-5 py-3.5 border-b border-borderInner flex flex-wrap items-center justify-between gap-3 bg-surface">
+          
+          <!-- Left: Workspace Heading & Synchronized Reflectance Readout -->
+          <div class="flex flex-wrap items-center gap-3">
+            <h2 class="font-display text-[15px] font-semibold text-ink">
+              Reconstruction Workspace
+            </h2>
+            <div class="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-[4px] bg-subtle border border-borderInner font-mono text-[11px] text-slate tabular-nums">
+              <span>Cursor <strong id="cursorCoord" class="text-ink font-medium">(256, 256)</strong></span>
+              <span class="text-borderOuter">|</span>
+              <span>Reflectance ρ: <strong id="cursorReflectance" class="text-ink font-medium">R:-- G:-- B:--</strong></span>
             </div>
           </div>
 
-          <!-- Empty placeholder before inference -->
-          <div id="emptyWorkspace" class="empty-state">
-            <p>Select a benchmark preset or upload an optical satellite image on the left, then click <strong>Run Cloud Removal</strong>.</p>
-          </div>
-
-          <!-- Results Workspace Container -->
-          <div id="activeWorkspace" style="display:none;">
-            <!-- Split Slider View -->
-            <div id="viewSlider">
-              <div class="slider-container" id="sliderBox">
-                <!-- Under image: Cloudy -->
-                <img id="imgCloudySlider" class="slider-img" src="" alt="Cloudy Input">
-                <!-- Top image: Predicted Clean -->
-                <img id="imgPredSlider" class="slider-img slider-img-top" src="" alt="U-Net Clean Prediction">
-                <!-- Vertical Divider -->
-                <div class="slider-divider" id="sliderDivider">
-                  <div class="slider-handle">↔</div>
-                </div>
-              </div>
-              <input type="range" min="0" max="100" value="50" class="slider-range" id="sliderRange" oninput="updateSplit(this.value)">
-              <div class="slider-tags">
-                <span>◀ Clean U-Net Prediction</span>
-                <span>Cloudy Input ▶</span>
-              </div>
-            </div>
-
-            <!-- Side-by-Side View -->
-            <div id="viewPanels" style="display:none;">
-              <div class="panels-container" id="panelsBox">
-                <div class="panel-box">
-                  <img id="panelCloudy" src="" alt="Cloudy Input">
-                  <div class="panel-title">Cloudy Input</div>
-                  <div class="panel-subtitle" id="subCloudy">--</div>
-                </div>
-                <div class="panel-box">
-                  <img id="panelPred" src="" alt="U-Net Prediction">
-                  <div class="panel-title">U-Net Prediction</div>
-                  <div class="panel-subtitle" id="subPred">--</div>
-                </div>
-                <div class="panel-box" id="boxClear" style="display:none;">
-                  <img id="panelClear" src="" alt="Ground Truth">
-                  <div class="panel-title">Ground Truth Clear</div>
-                  <div class="panel-subtitle">Reference Target</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Downloads -->
-            <div class="download-row">
-              <button id="btnDownloadTiff" class="btn btn-secondary btn-download" onclick="downloadPrediction('geotiff')">
-                💾 Download GeoTIFF (.tif)
+          <!-- Right: View Mode Segmented Toggle & Download Options -->
+          <div class="flex flex-wrap items-center gap-2.5">
+            
+            <!-- Segmented View Toggle: [⚡ Split Slider] and [⊞ Side-by-Side] -->
+            <div class="inline-flex rounded-[6px] border border-borderOuter bg-subtle p-0.5" role="group">
+              <button id="btnViewSplit" type="button" class="px-3 py-1 rounded-[4px] text-[12px] font-medium bg-gblueTint text-gblueActive border border-[#D2E3FC] transition flex items-center gap-1.5">
+                <span>⚡ Split Slider</span>
               </button>
-              <button id="btnDownloadPng" class="btn btn-secondary btn-download" onclick="downloadPrediction('png')">
-                🖼️ Download PNG (.png)
+              <button id="btnViewSideBySide" type="button" class="px-3 py-1 rounded-[4px] text-[12px] font-medium text-slate hover:text-ink transition flex items-center gap-1.5">
+                <span>⊞ Side-by-Side</span>
               </button>
             </div>
+
+            <div class="h-4 w-[1px] bg-borderOuter hidden sm:block"></div>
+
+            <!-- Download Options -->
+            <button id="btnDownloadTif" type="button" disabled class="px-3 py-1.5 rounded-[6px] bg-surface hover:bg-canvas border border-borderOuter text-[12px] font-medium text-inkBody transition inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+              <span>💾 Download GeoTIFF (.tif)</span>
+            </button>
+            <button id="btnDownloadPng" type="button" disabled class="px-3 py-1.5 rounded-[6px] bg-surface hover:bg-canvas border border-borderOuter text-[12px] font-medium text-inkBody transition inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+              <span>🖼️ Download PNG (.png)</span>
+            </button>
           </div>
         </div>
 
-        <!-- Accuracy Evaluation Card (Strictly conditional) -->
-        <div class="card" id="accuracyCard" style="display:none;">
-          <div class="card-title">
-            <span>Quantitative Accuracy Evaluation</span>
-            <span id="gtBadge" class="badge badge-real">Ground Truth Present</span>
+        <!-- Visual Comparison Display Area -->
+        <div class="p-5 bg-canvas relative min-h-[360px]">
+          
+          <!-- Deterministic Inference Progress Overlay -->
+          <div id="inferenceLoadingOverlay" class="hidden absolute inset-0 z-20 bg-surface/85 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2.5 rounded-b-[8px]">
+            <div class="w-7 h-7 rounded-full border-2 border-borderOuter border-t-gblue animate-spin"></div>
+            <div class="font-display text-[13px] font-medium text-ink">
+              Running deterministic U-Net surface reflectance inference…
+            </div>
+            <div class="font-mono text-[11px] text-slate">
+              Tensor [1, 3, 512, 512] • Normalizing BOA reflectance range [0.0, 1.0]
+            </div>
           </div>
 
-          <div id="gtAvailableSection">
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Computed strictly on raw physical surface reflectance values in [0.0, 1.0]:
+          <!-- VIEW 1: INTERACTIVE SPLIT SLIDER (Active by default) -->
+          <div id="splitSliderView" class="flex flex-col items-center gap-3">
+            
+            <!-- Split Slider Controls Header -->
+            <div class="w-full max-w-[560px] flex flex-wrap items-center justify-between gap-2 bg-surface border border-borderOuter rounded-[6px] px-3.5 py-2">
+              <div class="flex items-center gap-1.5 text-[12px]">
+                <span class="text-slate mr-1">Compare:</span>
+                <button id="btnSplitPairCloudyPred" type="button" class="px-2.5 py-1 rounded-[4px] font-medium bg-gblueTint text-gblueActive">
+                  Cloudy Input vs U-Net Prediction
+                </button>
+                <button id="btnSplitPairPredClear" type="button" class="px-2.5 py-1 rounded-[4px] font-medium text-slate hover:text-ink">
+                  U-Net Prediction vs Ground Truth
+                </button>
+              </div>
+              <span class="font-mono text-[11px] text-slate tabular-nums">
+                Split: <strong id="splitPctReadout" class="text-ink">50%</strong>
+              </span>
+            </div>
+
+            <!-- Interactive 512x512 Split Stage -->
+            <div id="splitStage" class="relative w-full max-w-[560px] aspect-square bg-surface border border-borderOuter rounded-[6px] overflow-hidden select-none">
+              <!-- Right Layer -->
+              <canvas id="canvasSplitRight" width="512" height="512" class="w-full h-full block object-contain"></canvas>
+              <!-- Clipped Left Layer -->
+              <div id="splitLeftClip" class="absolute inset-0 overflow-hidden" style="clip-path: inset(0 50% 0 0);">
+                <canvas id="canvasSplitLeft" width="512" height="512" class="w-full h-full block object-contain"></canvas>
+              </div>
+              <!-- Vertical Handle -->
+              <div id="splitHandleLine" class="absolute top-0 bottom-0 w-[2px] bg-gblue cursor-ew-resize" style="left: 50%;">
+                <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-surface border-2 border-gblue text-gblue flex items-center justify-center shadow-md">
+                  <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M13.28 7.78l3.22 2.22-3.22 2.22v-4.44zm-6.56 0v4.44L3.5 10l3.22-2.22z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              <!-- Corner Labels -->
+              <div id="splitLeftTag" class="absolute top-3 left-3 bg-surface/95 border border-borderOuter px-2.5 py-1 rounded-[4px] font-mono text-[11px] font-medium text-ink shadow-sm">
+                Cloudy Input (512 × 512)
+              </div>
+              <div id="splitRightTag" class="absolute top-3 right-3 bg-gblueTint/95 border border-[#D2E3FC] px-2.5 py-1 rounded-[4px] font-mono text-[11px] font-medium text-gblueActive shadow-sm">
+                U-Net Prediction
+              </div>
+            </div>
+
+            <!-- Range slider for accessibility -->
+            <input type="range" min="0" max="100" value="50" id="splitRangeInput" class="w-full max-w-[560px] mx-auto block mt-1 accent-gblue cursor-pointer">
+            <div class="flex justify-between max-w-[560px] w-full text-[11px] text-slate font-mono">
+              <span id="sliderRangeLeftLabel">◀ Cloudy Input</span>
+              <span id="sliderRangeRightLabel">U-Net Prediction ▶</span>
+            </div>
+          </div>
+
+          <!-- VIEW 2: SIDE-BY-SIDE (3 Equal-Width Image Containers) -->
+          <div id="sideBySideView" class="hidden grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <!-- Image Container 1: Cloudy Input -->
+            <div class="bg-surface border border-borderOuter rounded-[6px] overflow-hidden flex flex-col shadow-sm">
+              <div class="px-3.5 py-2.5 bg-canvas border-b border-borderInner flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-display text-[13px] font-semibold text-ink">Cloudy Input</span>
+                </div>
+                <span id="dimsCloudy" class="font-mono text-[11px] text-muted tabular-nums">512 × 512 px</span>
+              </div>
+              <div class="relative aspect-square w-full bg-subtle overflow-hidden">
+                <canvas id="canvasCloudy" width="512" height="512" class="eo-canvas w-full h-full object-contain"></canvas>
+                <div id="reticleCloudy" class="pointer-events-none hidden absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 border-[1.5px] border-gblue rounded-full bg-white/20"></div>
+              </div>
+              <div class="px-3.5 py-2 bg-surface border-t border-borderInner flex items-center justify-between font-mono text-[11px] text-slate tabular-nums">
+                <span id="labelCloudyFile" class="truncate max-w-[150px]">Input scene</span>
+                <span id="readoutCloudy">ρ: --, --, --</span>
+              </div>
+            </div>
+
+            <!-- Image Container 2: U-Net Prediction -->
+            <div class="bg-surface border border-gblue rounded-[6px] overflow-hidden flex flex-col ring-1 ring-gblue/15 shadow-sm">
+              <div class="px-3.5 py-2.5 bg-gblueTint/50 border-b border-[#D2E3FC] flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span id="predHeaderTitle" class="font-display text-[13px] font-semibold text-gblueActive">U-Net Prediction</span>
+                </div>
+                <span id="dimsPred" class="font-mono text-[11px] font-medium text-gblueActive tabular-nums">512 × 512 px</span>
+              </div>
+              <div class="relative aspect-square w-full bg-subtle overflow-hidden">
+                <canvas id="canvasPred" width="512" height="512" class="eo-canvas w-full h-full object-contain"></canvas>
+                <div id="reticlePred" class="pointer-events-none hidden absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 border-[1.5px] border-gblue rounded-full bg-white/20"></div>
+              </div>
+              <div class="px-3.5 py-2 bg-surface border-t border-borderInner flex items-center justify-between font-mono text-[11px] text-slate tabular-nums">
+                <span id="predFooterStatus" class="text-gblueActive font-medium">Reconstructed output</span>
+                <span id="readoutPred">ρ: --, --, --</span>
+              </div>
+            </div>
+
+            <!-- Image Container 3: Ground Truth Clear -->
+            <div id="cardClear" class="bg-surface border border-borderOuter rounded-[6px] overflow-hidden flex flex-col shadow-sm">
+              <div class="px-3.5 py-2.5 bg-canvas border-b border-borderInner flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="font-display text-[13px] font-semibold text-ink">Ground Truth Clear</span>
+                </div>
+                <span id="dimsClear" class="font-mono text-[11px] text-muted tabular-nums">512 × 512 px</span>
+              </div>
+              <div class="relative aspect-square w-full bg-subtle overflow-hidden">
+                <canvas id="canvasClear" width="512" height="512" class="eo-canvas w-full h-full object-contain"></canvas>
+                <div id="reticleClear" class="pointer-events-none hidden absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 border-[1.5px] border-gblue rounded-full bg-white/20"></div>
+              </div>
+              <div class="px-3.5 py-2 bg-surface border-t border-borderInner flex items-center justify-between font-mono text-[11px] text-slate tabular-nums">
+                <span>Reference target scene</span>
+                <span id="readoutClear">ρ: --, --, --</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- QUANTITATIVE ACCURACY EVALUATION CARD                             -->
+      <!-- ================================================================= -->
+      <div id="accuracyCard" class="bg-surface border border-borderOuter rounded-[8px] px-5 py-4 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 pb-3.5 mb-4 border-b border-borderInner">
+          <div>
+            <h2 class="font-display text-[15px] font-semibold text-ink">
+              Quantitative Accuracy Evaluation
+            </h2>
+            <p class="text-[12px] text-slate mt-0.5">
+              Computed against raw physical surface reflectance values in the range <span class="font-mono text-ink font-medium">[0.0, 1.0]</span>
             </p>
-            <div class="metrics-grid">
-              <div class="metric-card">
-                <div class="metric-label">Cloudy Base MAE</div>
-                <div class="metric-value" id="valBaseMae">--</div>
+          </div>
+          <span id="gtBadge" class="font-mono text-[11px] font-medium text-successInk bg-successBg border border-successBorder px-2.5 py-1 rounded-[4px] self-start sm:self-center">
+            Ground Truth Present
+          </span>
+        </div>
+
+        <!-- Section A: Metrics Available (when ground truth present) -->
+        <div id="gtAvailableSection" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Metric Panel 1: Mean Absolute Error (MAE) -->
+          <div class="bg-canvas border border-borderInner rounded-[6px] p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-[12px] font-medium text-slate">
+                  Mean Absolute Error (MAE)
+                </span>
+                <span class="font-mono text-[11px] text-muted">Lower is better ↓</span>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">U-Net Pred MAE</div>
-                <div class="metric-value" id="valPredMae">--</div>
-                <div class="metric-delta delta-pos" id="deltaMae">--</div>
+
+              <!-- Metric Comparison Line -->
+              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 my-1.5 font-mono tabular-nums">
+                <span class="text-[13px] text-inkBody">
+                  Cloudy Base MAE: <strong id="metricCloudyMae" class="font-semibold text-ink">--</strong>
+                </span>
+                <span class="text-muted text-[12px]">vs</span>
+                <span class="text-[13px] text-inkBody">
+                  U-Net Pred MAE: <strong id="metricPredMae" class="font-semibold text-ink">--</strong>
+                </span>
+                <span id="metricDeltaMae" class="font-mono text-[11px] font-medium px-1.5 py-0.5 rounded-[4px] bg-subtle border border-borderOuter text-inkBody">
+                  --
+                </span>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">Cloudy Base PSNR</div>
-                <div class="metric-value" id="valBasePsnr">-- dB</div>
+            </div>
+
+            <!-- Comparative Scale Bars -->
+            <div class="mt-3 pt-3 border-t border-borderInner space-y-2 font-mono text-[11px] tabular-nums">
+              <div>
+                <div class="flex justify-between text-slate mb-1">
+                  <span>Cloudy Base MAE</span>
+                  <span id="barTextCloudyMae" class="text-ink">--</span>
+                </div>
+                <div class="w-full h-1.5 bg-borderInner rounded-full overflow-hidden">
+                  <div id="barFillCloudyMae" class="h-full bg-slate rounded-full transition-all duration-300" style="width: 50%;"></div>
+                </div>
               </div>
-              <div class="metric-card">
-                <div class="metric-label">U-Net Pred PSNR</div>
-                <div class="metric-value" id="valPredPsnr">-- dB</div>
-                <div class="metric-delta delta-pos" id="deltaPsnr">--</div>
+              <div>
+                <div class="flex justify-between text-slate mb-1">
+                  <span>U-Net Pred MAE</span>
+                  <span id="barTextPredMae" class="text-ink font-medium">--</span>
+                </div>
+                <div class="w-full h-1.5 bg-borderInner rounded-full overflow-hidden">
+                  <div id="barFillPredMae" class="h-full bg-gblue rounded-full transition-all duration-300" style="width: 50%;"></div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div id="gtUnavailableSection" style="display:none; font-size: 0.85rem; color: var(--text-muted); padding: 0.5rem 0;">
-            ℹ️ <strong>No reference clear scene provided.</strong> Quantitative metrics (MAE and PSNR) are strictly omitted
-            because evaluation requires a true cloud-free paired ground-truth image.
+          <!-- Metric Panel 2: Peak Signal-to-Noise Ratio (PSNR) -->
+          <div class="bg-canvas border border-borderInner rounded-[6px] p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-[12px] font-medium text-slate">
+                  Peak Signal-to-Noise Ratio (PSNR)
+                </span>
+                <span class="font-mono text-[11px] text-gblueActive">Higher is better ↑</span>
+              </div>
+
+              <!-- Metric Comparison Line -->
+              <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 my-1.5 font-mono tabular-nums">
+                <span class="text-[13px] text-inkBody">
+                  Cloudy Base PSNR: <strong id="metricCloudyPsnr" class="font-semibold text-ink">-- dB</strong>
+                </span>
+                <span class="text-muted text-[12px]">vs</span>
+                <span class="text-[13px] text-inkBody">
+                  U-Net Pred PSNR: <strong id="metricPredPsnr" class="font-semibold text-gblueActive">-- dB</strong>
+                </span>
+                <span id="metricDeltaPsnr" class="font-mono text-[11px] font-medium px-1.5 py-0.5 rounded-[4px] bg-gblueTint border border-[#D2E3FC] text-gblueActive">
+                  --
+                </span>
+              </div>
+            </div>
+
+            <!-- Comparative Scale Bars -->
+            <div class="mt-3 pt-3 border-t border-borderInner space-y-2 font-mono text-[11px] tabular-nums">
+              <div>
+                <div class="flex justify-between text-slate mb-1">
+                  <span>Cloudy Base PSNR</span>
+                  <span id="barTextCloudyPsnr" class="text-ink">-- dB</span>
+                </div>
+                <div class="w-full h-1.5 bg-borderInner rounded-full overflow-hidden">
+                  <div id="barFillCloudyPsnr" class="h-full bg-slate rounded-full transition-all duration-300" style="width: 50%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-slate mb-1">
+                  <span>U-Net Pred PSNR</span>
+                  <span id="barTextPredPsnr" class="text-gblueActive font-medium">-- dB</span>
+                </div>
+                <div class="w-full h-1.5 bg-borderInner rounded-full overflow-hidden">
+                  <div id="barFillPredPsnr" class="h-full bg-gblue rounded-full transition-all duration-300" style="width: 65%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section B: No Ground Truth Notice (when cloudy-only upload) -->
+        <div id="gtUnavailableSection" class="hidden text-[13px] text-slate py-3 px-4 bg-subtle rounded-[6px] border border-borderInner">
+          <div class="flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-slate shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+            </svg>
+            <span>
+              <strong class="text-ink font-medium">No reference clear scene provided.</strong> Quantitative metrics (MAE and PSNR) are strictly omitted because evaluation requires a true cloud-free paired ground-truth image.
+            </span>
           </div>
         </div>
+
       </div>
-    </div>
+
+    </section>
+
+  </main>
+
+  <!-- Google Material Snackbar Notification -->
+  <div id="snackbar" class="fixed bottom-5 right-6 z-50 hidden items-center gap-3 bg-[#323232] text-white px-4 py-2.5 rounded-[4px] shadow-lg text-[13px] transition-all">
+    <span id="snackbarText">Inference completed.</span>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- APPLICATION LOGIC & FULL BACKEND API INTEGRATION                      -->
+  <!-- ===================================================================== -->
   <script>
+    // -----------------------------------------------------------------------
+    // 1. STATE MANAGEMENT
+    // -----------------------------------------------------------------------
     let currentSessionId = null;
     let presetsData = [];
-    let currentViewMode = "slider";
+    let activePresetId = 'sen12mscr_val_0';
+    let splitPairMode = 'cloudy_pred'; // 'cloudy_pred' | 'pred_clear'
+    let hasGroundTruth = false;
 
-    // Initialize UI on page load
-    window.addEventListener("DOMContentLoaded", async () => {
-      await Promise.all([loadModelsList(), loadPresets()]);
+    const SIZE = 512;
+    let bufCloudy = new Uint8ClampedArray(SIZE * SIZE * 4);
+    let bufPred   = new Uint8ClampedArray(SIZE * SIZE * 4);
+    let bufClear  = new Uint8ClampedArray(SIZE * SIZE * 4);
+
+    // -----------------------------------------------------------------------
+    // 2. INITIALIZATION ON WINDOW LOAD
+    // -----------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', async () => {
+      initCanvasInspection();
       initSliderDrag();
+      initTabs();
+      initBandDrawer();
+      initSingleBandTest();
+      initDownloadButtons();
+
+      await Promise.all([loadModelsList(), loadPresets()]);
+
+      // Automatically execute benchmark preset #0 on initial load for instant visualization
+      if (presetsData.length > 0) {
+        runPresetInference(presetsData[0].id);
+      }
     });
 
+    // -----------------------------------------------------------------------
+    // 3. MODEL CHECKPOINTS (GET /api/ui/models & POST /api/ui/select-model)
+    // -----------------------------------------------------------------------
     async function loadModelsList() {
       try {
-        const resp = await fetch("/api/ui/models");
+        const resp = await fetch('/api/ui/models');
         if (!resp.ok) return;
         const data = await resp.json();
-        const sel = document.getElementById("modelSelect");
+        const sel = document.getElementById('modelSelect');
         if (!sel || !data.models) return;
-        sel.innerHTML = "";
+        sel.innerHTML = '';
         data.models.forEach(m => {
-          const opt = document.createElement("option");
+          const opt = document.createElement('option');
           opt.value = m.id;
           opt.textContent = `${m.name} (${m.size_mb} MB)`;
-          const activeNorm = (data.active_model || "").toLowerCase();
-          const idNorm = (m.id || "").toLowerCase();
+          const activeNorm = (data.active_model || '').toLowerCase();
+          const idNorm = (m.id || '').toLowerCase();
           if (activeNorm.includes(idNorm) || idNorm.includes(activeNorm)) {
             opt.selected = true;
           }
@@ -1077,352 +1278,729 @@ def get_ui_html() -> str:
         });
         updateModelParamBadge(data.active_model);
       } catch (err) {
-        console.error("Failed to load models list", err);
+        console.error('Failed to load models list', err);
       }
     }
 
     function updateModelParamBadge(checkpointPath) {
-      const badge = document.getElementById("modelParamBadge");
+      const badge = document.getElementById('modelParamBadge');
       if (!badge) return;
-      const chk = (checkpointPath || "").toLowerCase();
-      if (chk.includes("best_unet") || chk.includes("standard_unet")) {
-        badge.innerText = "7.76M Params (150 Ep)";
-      } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
-        badge.innerText = "1.94M Params (Record)";
-      } else if (chk.includes("rice2")) {
-        badge.innerText = "1.94M Params (RICE2)";
-      } else if (chk.includes("cgan") && chk.includes("fcc")) {
-        badge.innerText = "11.38M Generator";
-      } else if (chk.includes("cgan")) {
-        badge.innerText = "11.38M Generator";
-      } else if (chk.includes("compact")) {
-        badge.innerText = "1.94M Params";
+      const chk = (checkpointPath || '').toLowerCase();
+      if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+        badge.innerText = '7.76M PARAMS (150 EP)';
+      } else if (chk.includes('best_compact_unet_v2') || chk.includes('v2')) {
+        badge.innerText = '1.94M PARAMS (RECORD)';
+      } else if (chk.includes('rice2')) {
+        badge.innerText = '1.94M PARAMS (RICE2)';
+      } else if (chk.includes('cgan') && chk.includes('fcc')) {
+        badge.innerText = '11.38M GENERATOR (FCC)';
+      } else if (chk.includes('cgan')) {
+        badge.innerText = '11.38M GENERATOR';
+      } else if (chk.includes('compact')) {
+        badge.innerText = '1.94M PARAMS';
       } else {
-        badge.innerText = "Active Model";
+        badge.innerText = 'ACTIVE MODEL';
       }
     }
 
+    document.getElementById('modelSelect').addEventListener('change', onModelChange);
+
     async function onModelChange() {
-      const sel = document.getElementById("modelSelect");
+      const sel = document.getElementById('modelSelect');
       const modelId = sel.value;
       if (!modelId) return;
 
-      const statusMsg = document.getElementById("modelStatusMsg");
-      statusMsg.style.color = "var(--primary)";
-      statusMsg.innerText = "⏳ Initializing model checkpoint...";
+      const statusMsg = document.getElementById('modelStatusMsg');
+      statusMsg.style.color = '#1A73E8';
+      statusMsg.innerText = '⏳ Initializing model checkpoint...';
       sel.disabled = true;
 
       try {
         const formData = new FormData();
-        formData.append("model_id", modelId);
-        const resp = await fetch("/api/ui/select-model", { method: "POST", body: formData });
+        formData.append('model_id', modelId);
+        const resp = await fetch('/api/ui/select-model', { method: 'POST', body: formData });
         const data = await resp.json();
-        if (!resp.ok) throw new Error(data.detail || "Failed to switch model");
+        if (!resp.ok) throw new Error(data.detail || 'Failed to switch model');
 
-        statusMsg.style.color = "var(--accent)";
-        statusMsg.innerText = "✓ Active model switched successfully!";
+        statusMsg.style.color = '#137333';
+        statusMsg.innerText = '✓ Active model switched successfully!';
         updateModelParamBadge(data.active_checkpoint);
 
-        let label = "Model: U-Net";
-        const chk = (data.active_checkpoint || "").toLowerCase();
-        if (chk.includes("best_unet") || chk.includes("standard_unet")) {
-          label = "Model: Full U-Net (42.13 dB - Best)";
-        } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
-          label = "Model: U-Net v2 (41.09 dB - Record)";
-        } else if (chk.includes("rice2")) {
-          label = "Model: RICE2 Compact U-Net";
-        } else if (chk.includes("cgan") && chk.includes("fcc")) {
-          label = "Model: LISS-IV FCC cGAN";
-        } else if (chk.includes("cgan")) {
-          label = "Model: Pix2Pix cGAN";
-        } else if (chk.includes("compact")) {
-          label = "Model: Compact U-Net";
+        let label = 'Model: U-Net';
+        const chk = (data.active_checkpoint || '').toLowerCase();
+        let isCrossSensor = false;
+        if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+          label = 'Model: Full U-Net (42.13 dB - Best)';
+        } else if (chk.includes('best_compact_unet_v2') || chk.includes('v2')) {
+          label = 'Model: U-Net v2 (41.09 dB - Record)';
+        } else if (chk.includes('rice2')) {
+          label = 'Model: RICE2 Compact U-Net';
+        } else if (chk.includes('cgan') && chk.includes('fcc')) {
+          label = 'Model: LISS-IV FCC cGAN (Experimental)';
+          isCrossSensor = true;
+        } else if (chk.includes('cgan')) {
+          label = 'Model: Pix2Pix cGAN';
+        } else if (chk.includes('compact')) {
+          label = 'Model: Compact U-Net';
         }
-        const sBadge = document.getElementById("serviceBadge");
-        if (sBadge) sBadge.innerText = label;
+        document.getElementById('serviceBadge').innerText = label;
 
-        setTimeout(() => { statusMsg.innerText = ""; }, 3500);
+        if (isCrossSensor) {
+          const callout = document.getElementById('domainNoticeCallout');
+          callout.classList.remove('callout-flash');
+          void callout.offsetWidth;
+          callout.classList.add('callout-flash');
+          document.getElementById('bandSpecDrawer').classList.remove('hidden');
+        }
+
+        showSnackbar(`Model switched to ${label.replace('Model: ', '')}`);
+        setTimeout(() => { statusMsg.innerText = ''; }, 3500);
+
+        // Re-run inference with the newly active checkpoint
+        const tabPanelPresets = document.getElementById('tabPanelPresets');
+        if (!tabPanelPresets.classList.contains('hidden') && activePresetId) {
+          runPresetInference(activePresetId);
+        }
       } catch (err) {
-        statusMsg.style.color = "var(--danger)";
+        statusMsg.style.color = '#C5221F';
         statusMsg.innerText = `⚠️ Error: ${err.message}`;
       } finally {
         sel.disabled = false;
       }
     }
 
-    function switchTab(tabId) {
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-      if (tabId === 'tabPreset') {
-        document.querySelectorAll(".tab-btn")[0].classList.add("active");
-        document.getElementById('tabPreset').classList.add("active");
-      } else {
-        document.querySelectorAll(".tab-btn")[1].classList.add("active");
-        document.getElementById('tabUpload').classList.add("active");
-      }
-    }
-
-    function setViewMode(mode) {
-      currentViewMode = mode;
-      document.getElementById("btnToggleSlider").classList.toggle("active", mode === "slider");
-      document.getElementById("btnTogglePanels").classList.toggle("active", mode === "panels");
-      document.getElementById("viewSlider").style.display = mode === "slider" ? "block" : "none";
-      document.getElementById("viewPanels").style.display = mode === "panels" ? "block" : "none";
-    }
-
-    function onFileSelected(input, labelId) {
-      const label = document.getElementById(labelId);
-      if (input.files && input.files[0]) {
-        label.innerHTML = `📄 <strong>${input.files[0].name}</strong> (${(input.files[0].size / 1024).toFixed(1)} KB)`;
-      }
-    }
-
+    // -----------------------------------------------------------------------
+    // 4. BENCHMARK PRESETS (GET /api/ui/presets)
+    // -----------------------------------------------------------------------
     async function loadPresets() {
       try {
-        const resp = await fetch("/api/ui/presets");
-        if (!resp.ok) throw new Error("Failed to fetch presets");
+        const resp = await fetch('/api/ui/presets');
+        if (!resp.ok) throw new Error('Failed to fetch presets');
         presetsData = await resp.json();
-        const sel = document.getElementById("presetSelect");
+
+        // Populate dropdown
+        const sel = document.getElementById('presetSelect');
         sel.innerHTML = presetsData.map(p =>
           `<option value="${p.id}">[${p.category}] ${p.name}</option>`
-        ).join("");
+        ).join('');
+
+        // Populate rich preset tile buttons
+        renderPresetTiles();
         onPresetChange();
       } catch (err) {
         console.error(err);
-        document.getElementById("presetDesc").innerText = "Failed to load presets: " + err.message;
+        document.getElementById('presetDesc').innerText = 'Failed to load presets: ' + err.message;
       }
     }
+
+    function renderPresetTiles() {
+      const container = document.getElementById('presetTilesContainer');
+      container.innerHTML = '';
+      presetsData.slice(0, 3).forEach((p, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.preset = p.id;
+        const isActive = (p.id === activePresetId);
+        btn.className = isActive
+          ? 'preset-tile w-full text-left p-2.5 rounded-[6px] bg-gblueTint border border-gblue flex items-center justify-between transition'
+          : 'preset-tile w-full text-left p-2.5 rounded-[6px] bg-surface hover:bg-canvas border border-borderOuter flex items-center justify-between transition';
+
+        btn.innerHTML = `
+          <div>
+            <div class="font-mono text-[12px] font-medium ${isActive ? 'text-gblueActive' : 'text-ink'}">${p.name}</div>
+            <div class="font-mono text-[11px] text-slate mt-0.5">${p.category} • Sentinel-2 10m</div>
+          </div>
+          <span class="text-[11px] font-medium ${isActive ? 'text-gblueActive' : 'text-slate'}">${isActive ? 'Active' : 'Load'}</span>
+        `;
+        btn.addEventListener('click', () => {
+          activePresetId = p.id;
+          document.getElementById('presetSelect').value = p.id;
+          updatePresetTileHighlighting();
+          onPresetChange();
+          runPresetInference(p.id);
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function updatePresetTileHighlighting() {
+      document.querySelectorAll('.preset-tile').forEach(b => {
+        const match = (b.dataset.preset === activePresetId);
+        b.className = match
+          ? 'preset-tile w-full text-left p-2.5 rounded-[6px] bg-gblueTint border border-gblue flex items-center justify-between transition'
+          : 'preset-tile w-full text-left p-2.5 rounded-[6px] bg-surface hover:bg-canvas border border-borderOuter flex items-center justify-between transition';
+        const titleEl = b.querySelector('.font-mono.text-\\[12px\\]');
+        if (titleEl) titleEl.className = match ? 'font-mono text-[12px] font-medium text-gblueActive' : 'font-mono text-[12px] font-medium text-ink';
+        const statusEl = b.querySelector('span:last-child');
+        if (statusEl) {
+          statusEl.textContent = match ? 'Active' : 'Load';
+          statusEl.className = match ? 'text-[11px] font-medium text-gblueActive' : 'text-[11px] font-medium text-slate';
+        }
+      });
+    }
+
+    document.getElementById('presetSelect').addEventListener('change', () => {
+      activePresetId = document.getElementById('presetSelect').value;
+      updatePresetTileHighlighting();
+      onPresetChange();
+    });
 
     function onPresetChange() {
-      const sel = document.getElementById("presetSelect");
-      const selectedId = sel.value;
+      const selectedId = document.getElementById('presetSelect').value;
       const p = presetsData.find(item => item.id === selectedId);
       if (p) {
-        document.getElementById("presetDesc").innerHTML =
-          `<strong>${p.name}:</strong> ${p.description} <br><em>${p.is_synthetic ? '⚠️ Synthetic cloud simulation' : '✓ Real SEN12MS-CR paired data'}</em>`;
+        document.getElementById('presetDesc').innerHTML =
+          `<strong>${p.name}:</strong> ${p.description} <br><span class="font-mono text-[11px]">${p.is_synthetic ? '⚠️ Simulated Gaussian/Perlin turbulence' : '✓ Real SEN12MS-CR paired optical validation scene'}</span>`;
       }
     }
 
-    async function runPresetInference() {
-      const presetId = document.getElementById("presetSelect").value;
-      if (!presetId) return;
+    // -----------------------------------------------------------------------
+    // 5. INFERENCE EXECUTION (POST /api/ui/predict)
+    // -----------------------------------------------------------------------
+    document.getElementById('btnRunPreset').addEventListener('click', () => {
+      const selId = document.getElementById('presetSelect').value;
+      if (selId) runPresetInference(selId);
+    });
 
-      setLoading(true, "Preset");
+    async function runPresetInference(presetId) {
+      if (!presetId) return;
+      activePresetId = presetId;
+      setLoading(true, 'Preset');
+
       try {
         const formData = new FormData();
-        formData.append("preset_id", presetId);
+        formData.append('preset_id', presetId);
 
-        const resp = await fetch("/api/ui/predict", { method: "POST", body: formData });
+        const resp = await fetch('/api/ui/predict', { method: 'POST', body: formData });
         const data = await resp.json();
-        if (!resp.ok) throw new Error(data.detail || "Inference failed");
+        if (!resp.ok) throw new Error(data.detail || 'Inference failed');
 
         renderInferenceResult(data);
       } catch (err) {
-        alert("Error: " + err.message);
+        showSnackbar(`Error: ${err.message}`);
       } finally {
-        setLoading(false, "Preset");
+        setLoading(false, 'Preset');
       }
     }
 
+    document.getElementById('btnRunUpload').addEventListener('click', runUploadInference);
+
     async function runUploadInference() {
-      const cloudyInput = document.getElementById("cloudyFileInput");
+      const cloudyInput = document.getElementById('cloudyFileInput');
       if (!cloudyInput.files || !cloudyInput.files[0]) {
-        alert("Please select a cloudy input image file first.");
+        showSnackbar('Please select a cloudy input image file first.');
         return;
       }
 
-      setLoading(true, "Upload");
+      setLoading(true, 'Upload');
       try {
         const formData = new FormData();
-        formData.append("file", cloudyInput.files[0]);
+        formData.append('file', cloudyInput.files[0]);
 
-        const clearInput = document.getElementById("clearFileInput");
+        const clearInput = document.getElementById('clearFileInput');
         if (clearInput.files && clearInput.files[0]) {
-          formData.append("clear_file", clearInput.files[0]);
+          formData.append('clear_file', clearInput.files[0]);
         }
 
-        const resp = await fetch("/api/ui/predict", { method: "POST", body: formData });
+        const resp = await fetch('/api/ui/predict', { method: 'POST', body: formData });
         const data = await resp.json();
-        if (!resp.ok) throw new Error(data.detail || "Inference failed");
+        if (!resp.ok) throw new Error(data.detail || 'Inference failed');
 
         renderInferenceResult(data);
       } catch (err) {
-        alert("Upload Error: " + err.message);
+        showSnackbar(`Upload Error: ${err.message}`);
       } finally {
-        setLoading(false, "Upload");
+        setLoading(false, 'Upload');
       }
     }
 
+    // -----------------------------------------------------------------------
+    // 6. RENDER INFERENCE RESULTS & PAINT CANVASES
+    // -----------------------------------------------------------------------
     function renderInferenceResult(data) {
       currentSessionId = data.session_id;
+      hasGroundTruth = Boolean(data.has_ground_truth && data.clear_preview);
 
-      // Workspace displays
-      document.getElementById("emptyWorkspace").style.display = "none";
-      document.getElementById("activeWorkspace").style.display = "block";
-      document.getElementById("metaCard").style.display = "block";
-      document.getElementById("accuracyCard").style.display = "block";
+      // Metadata Table Sync
+      document.getElementById('metaExecTime').textContent = `${data.latency_ms.toFixed(1)} ms CPU`;
+      document.getElementById('metaDataSource').textContent = data.metadata.source || data.metadata.format || 'Standard Optical RGB';
+      document.getElementById('metaDimensions').textContent = `${data.input_shape.join(' × ')} [C, H, W]`;
+      document.getElementById('metaCRS').textContent = data.crs || 'None (Standard Optical RGB)';
+      document.getElementById('metaResolution').textContent = data.metadata.spatial_resolution || 'Unreferenced (Pixel Space)';
+      document.getElementById('metaCheckpoint').textContent = data.checkpoint || 'checkpoints/best_unet.pt';
 
-      // Images in Split Slider
-      document.getElementById("imgCloudySlider").src = data.cloudy_preview;
-      document.getElementById("imgPredSlider").src = data.pred_preview;
-      updateSplit(50);
-      document.getElementById("sliderRange").value = 50;
+      // Type / Label Badge
+      const typeLabel = document.getElementById('metaTypeLabel');
+      if (data.is_synthetic) {
+        typeLabel.innerHTML = '<span class="font-mono text-[11px] font-medium px-2 py-0.5 rounded-[4px] bg-warnBg border border-warnBorder text-warnInk">SYNTHETIC SIM</span>';
+      } else {
+        typeLabel.innerHTML = '<span class="font-mono text-[11px] font-medium px-2 py-0.5 rounded-[4px] bg-gblueTint text-gblueActive">REAL SCENE</span>';
+      }
 
-      // Dynamic Model Title Resolution
-      let activeModelLabel = "U-Net";
+      // Top Status Indicators
+      const srcBadgeText = document.getElementById('sourceBadgeText');
+      if (data.is_synthetic) {
+        srcBadgeText.textContent = 'SYNTHETIC CLOUD SIM';
+      } else {
+        srcBadgeText.textContent = 'REAL OPTICAL S2';
+      }
+
+      // Model title sync
       if (data.checkpoint) {
+        let label = 'Model: U-Net';
         const chk = data.checkpoint.toLowerCase();
-        if (chk.includes("best_unet") || chk.includes("standard_unet")) {
-          activeModelLabel = "Full U-Net (42.13 dB - Best)";
-        } else if (chk.includes("best_compact_unet_v2") || chk.includes("v2")) {
-          activeModelLabel = "U-Net v2 (41.09 dB - Record)";
-        } else if (chk.includes("cgan") && chk.includes("fcc")) {
-          activeModelLabel = "LISS-IV FCC cGAN";
-        } else if (chk.includes("cgan")) {
-          activeModelLabel = "Pix2Pix cGAN";
-        } else if (chk.includes("fcc")) {
-          activeModelLabel = "FCC U-Net";
-        } else if (chk.includes("compact")) {
-          activeModelLabel = "Compact U-Net";
+        if (chk.includes('best_unet') || chk.includes('standard_unet')) {
+          label = 'Model: Full U-Net (42.13 dB - Best)';
+        } else if (chk.includes('best_compact_unet_v2') || chk.includes('v2')) {
+          label = 'Model: U-Net v2 (41.09 dB - Record)';
+        } else if (chk.includes('rice2')) {
+          label = 'Model: RICE2 Compact U-Net';
+        } else if (chk.includes('cgan') && chk.includes('fcc')) {
+          label = 'Model: LISS-IV FCC cGAN';
+        } else if (chk.includes('cgan')) {
+          label = 'Model: Pix2Pix cGAN';
+        } else if (chk.includes('compact')) {
+          label = 'Model: Compact U-Net';
         }
-        const sBadge = document.getElementById("serviceBadge");
-        if (sBadge) sBadge.innerText = `Model: ${activeModelLabel}`;
+        document.getElementById('serviceBadge').textContent = label;
         updateModelParamBadge(data.checkpoint);
       }
 
-      // Images in Side-by-Side Panels
-      document.getElementById("panelCloudy").src = data.cloudy_preview;
-      document.getElementById("panelPred").src = data.pred_preview;
-      document.getElementById("subCloudy").innerText = `${data.input_shape[1]}x${data.input_shape[2]} px`;
-      document.getElementById("subPred").innerText = `${activeModelLabel} Reconstruction`;
-
-      if (data.clear_preview) {
-        document.getElementById("boxClear").style.display = "block";
-        document.getElementById("panelClear").src = data.clear_preview;
-      } else {
-        document.getElementById("boxClear").style.display = "none";
-      }
-
-      // Metadata
-      document.getElementById("latencyBadge").innerText = `${data.latency_ms.toFixed(1)} ms CPU`;
-      document.getElementById("metaSource").innerText = data.metadata.source || data.metadata.format || "Custom Upload";
-      document.getElementById("metaTypeLabel").innerHTML = data.is_synthetic
-        ? '<span class="badge badge-synth">Synthetic Simulation</span>'
-        : '<span class="badge badge-real">Real Scene</span>';
-      document.getElementById("metaDims").innerText = `${data.input_shape.join(" × ")} [Channels, H, W]`;
-      document.getElementById("metaCrs").innerText = data.crs || "None (Standard Optical RGB)";
-      document.getElementById("metaRes").innerText = data.metadata.spatial_resolution || "Unreferenced";
-      document.getElementById("metaCheckpoint").innerText = data.checkpoint || "compact U-Net (Epoch 5)";
-
-      // Top badges
-      const srcBadge = document.getElementById("sourceBadge");
-      srcBadge.style.display = "inline-block";
-      if (data.is_synthetic) {
-        srcBadge.className = "badge badge-synth";
-        srcBadge.innerText = "Synthetic Cloud Sim";
-      } else {
-        srcBadge.className = "badge badge-real";
-        srcBadge.innerText = "Real Optical S2";
-      }
-
-      // GeoTIFF Download availability
-      const btnTiff = document.getElementById("btnDownloadTiff");
+      // Enable download buttons
+      document.getElementById('btnDownloadPng').disabled = false;
+      const btnTif = document.getElementById('btnDownloadTif');
       if (data.is_geotiff) {
-        btnTiff.disabled = false;
-        btnTiff.title = "Download full-precision 3-band GeoTIFF with CRS and Transform";
+        btnTif.disabled = false;
+        btnTif.title = 'Download full-precision 3-band GeoTIFF with CRS and Transform';
       } else {
-        btnTiff.disabled = true;
-        btnTiff.title = "GeoTIFF export unavailable for standard PNG/JPG uploads without geospatial CRS metadata";
+        btnTif.disabled = true;
+        btnTif.title = 'GeoTIFF export unavailable for standard PNG/JPG uploads without geospatial metadata';
       }
 
-      // Accuracy Metrics
-      const gtAvail = document.getElementById("gtAvailableSection");
-      const gtUnavail = document.getElementById("gtUnavailableSection");
-      const gtBadge = document.getElementById("gtBadge");
+      // Accuracy Metrics Card
+      const gtAvail = document.getElementById('gtAvailableSection');
+      const gtUnavail = document.getElementById('gtUnavailableSection');
+      const gtBadge = document.getElementById('gtBadge');
+      const cardClear = document.getElementById('cardClear');
+      const btnSplitPairPredClear = document.getElementById('btnSplitPairPredClear');
 
       if (data.has_ground_truth && data.metrics) {
-        gtAvail.style.display = "block";
-        gtUnavail.style.display = "none";
-        gtBadge.className = "badge badge-real";
-        gtBadge.innerText = "Ground Truth Present";
+        gtAvail.classList.remove('hidden');
+        gtUnavail.classList.add('hidden');
+        gtBadge.className = 'font-mono text-[11px] font-medium text-successInk bg-successBg border border-successBorder px-2.5 py-1 rounded-[4px] self-start sm:self-center';
+        gtBadge.textContent = 'Ground Truth Present';
 
         const m = data.metrics;
-        document.getElementById("valBaseMae").innerText = m.input_mae.toFixed(4);
-        document.getElementById("valPredMae").innerText = m.pred_mae.toFixed(4);
-        document.getElementById("deltaMae").innerText = `${m.delta_mae >= 0 ? 'Improvement: -' : '+'}${Math.abs(m.delta_mae).toFixed(4)}`;
+        const dMae = m.delta_mae;
+        const sMae = dMae >= 0 ? '+' : '';
+        const dPsnr = m.delta_psnr;
+        const sPsnr = dPsnr >= 0 ? '+' : '';
 
-        document.getElementById("valBasePsnr").innerText = `${m.input_psnr.toFixed(2)} dB`;
-        document.getElementById("valPredPsnr").innerText = `${m.pred_psnr.toFixed(2)} dB`;
-        document.getElementById("deltaPsnr").innerText = `${m.delta_psnr >= 0 ? '+' : ''}${m.delta_psnr.toFixed(2)} dB`;
+        document.getElementById('metricCloudyMae').textContent = m.input_mae.toFixed(4);
+        document.getElementById('metricPredMae').textContent = m.pred_mae.toFixed(4);
+        document.getElementById('metricDeltaMae').textContent = `(${sMae}${dMae.toFixed(4)})`;
+        document.getElementById('barTextCloudyMae').textContent = m.input_mae.toFixed(4);
+        document.getElementById('barTextPredMae').textContent = `${m.pred_mae.toFixed(4)} (${sMae}${dMae.toFixed(4)})`;
+
+        // Scale bar widths
+        const cloudyMaeW = Math.min(100, Math.max(10, (m.input_mae / 0.20) * 100));
+        const predMaeW = Math.min(100, Math.max(10, (m.pred_mae / 0.20) * 100));
+        document.getElementById('barFillCloudyMae').style.width = `${cloudyMaeW}%`;
+        document.getElementById('barFillPredMae').style.width = `${predMaeW}%`;
+
+        document.getElementById('metricCloudyPsnr').textContent = `${m.input_psnr.toFixed(2)} dB`;
+        document.getElementById('metricPredPsnr').textContent = `${m.pred_psnr.toFixed(2)} dB`;
+        document.getElementById('metricDeltaPsnr').textContent = `(${sPsnr}${dPsnr.toFixed(2)} dB)`;
+        document.getElementById('barTextCloudyPsnr').textContent = `${m.input_psnr.toFixed(2)} dB`;
+        document.getElementById('barTextPredPsnr').textContent = `${m.pred_psnr.toFixed(2)} dB (${sPsnr}${dPsnr.toFixed(2)} dB)`;
+
+        const cloudyPsnrW = Math.min(100, Math.max(10, (m.input_psnr / 45.0) * 100));
+        const predPsnrW = Math.min(100, Math.max(10, (m.pred_psnr / 45.0) * 100));
+        document.getElementById('barFillCloudyPsnr').style.width = `${cloudyPsnrW}%`;
+        document.getElementById('barFillPredPsnr').style.width = `${predPsnrW}%`;
+
+        cardClear.classList.remove('hidden');
+        btnSplitPairPredClear.disabled = false;
+        btnSplitPairPredClear.classList.remove('opacity-40', 'cursor-not-allowed');
       } else {
-        gtAvail.style.display = "none";
-        gtUnavail.style.display = "block";
-        gtBadge.className = "badge badge-synth";
-        gtBadge.innerText = "Ground Truth: None";
+        gtAvail.classList.add('hidden');
+        gtUnavail.classList.remove('hidden');
+        gtBadge.className = 'font-mono text-[11px] font-medium text-warnInk bg-warnBg border border-warnBorder px-2.5 py-1 rounded-[4px] self-start sm:self-center';
+        gtBadge.textContent = 'Ground Truth: None';
+
+        cardClear.classList.add('hidden');
+        btnSplitPairPredClear.disabled = true;
+        btnSplitPairPredClear.classList.add('opacity-40', 'cursor-not-allowed');
+        if (splitPairMode === 'pred_clear') {
+          switchSplitPair('cloudy_pred');
+        }
+      }
+
+      // Draw all image previews onto the canvases
+      loadPreviewsToCanvases(data);
+      showSnackbar(`Inference complete (${data.latency_ms.toFixed(1)} ms)`);
+    }
+
+    function loadPreviewsToCanvases(data) {
+      let loadedCount = 0;
+      const totalToLoad = data.clear_preview ? 3 : 2;
+
+      function onAnyLoaded() {
+        loadedCount++;
+        if (loadedCount >= totalToLoad) {
+          paintSplitSliderCanvases();
+        }
+      }
+
+      // 1. Cloudy preview
+      loadImageData(data.cloudy_preview, 'canvasCloudy', bufCloudy, (c) => {
+        // Thumbnail in left panel
+        const thumb = document.getElementById('thumbCloudy');
+        thumb.getContext('2d').drawImage(c, 0, 0, 64, 64);
+        onAnyLoaded();
+      });
+
+      // 2. Prediction preview
+      loadImageData(data.pred_preview, 'canvasPred', bufPred, () => {
+        onAnyLoaded();
+      });
+
+      // 3. Clear preview (if ground truth available)
+      if (data.clear_preview) {
+        loadImageData(data.clear_preview, 'canvasClear', bufClear, (c) => {
+          const thumb = document.getElementById('thumbClear');
+          thumb.getContext('2d').drawImage(c, 0, 0, 64, 64);
+          onAnyLoaded();
+        });
       }
     }
 
-    function updateSplit(pct) {
-      const topImg = document.getElementById("imgPredSlider");
-      const divider = document.getElementById("sliderDivider");
-      topImg.style.clipPath = `polygon(0 0, ${pct}% 0, ${pct}% 100%, 0 100%)`;
-      divider.style.left = `${pct}%`;
+    function loadImageData(dataUri, canvasId, bufferArray, callback) {
+      if (!dataUri) return;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+        const imgData = ctx.getImageData(0, 0, SIZE, SIZE);
+        bufferArray.set(imgData.data);
+        if (callback) callback(canvas);
+      };
+      img.src = dataUri;
+    }
+
+    function paintSplitSliderCanvases() {
+      const splitL = document.getElementById('canvasSplitLeft').getContext('2d');
+      const splitR = document.getElementById('canvasSplitRight').getContext('2d');
+
+      if (splitPairMode === 'cloudy_pred') {
+        splitL.putImageData(new ImageData(bufCloudy, SIZE, SIZE), 0, 0);
+        splitR.putImageData(new ImageData(bufPred, SIZE, SIZE), 0, 0);
+      } else {
+        splitL.putImageData(new ImageData(bufPred, SIZE, SIZE), 0, 0);
+        splitR.putImageData(new ImageData(bufClear, SIZE, SIZE), 0, 0);
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. SYNCHRONIZED PIXEL REFLECTANCE INSPECTION
+    // -----------------------------------------------------------------------
+    function initCanvasInspection() {
+      const canvases = [
+        document.getElementById('canvasCloudy'),
+        document.getElementById('canvasPred'),
+        document.getElementById('canvasClear')
+      ];
+      const reticles = [
+        document.getElementById('reticleCloudy'),
+        document.getElementById('reticlePred'),
+        document.getElementById('reticleClear')
+      ];
+
+      canvases.forEach((canvas) => {
+        canvas.addEventListener('mousemove', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const nx = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const ny = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+          const px = Math.min(SIZE - 1, Math.floor(nx * SIZE));
+          const py = Math.min(SIZE - 1, Math.floor(ny * SIZE));
+          const idx = (py * SIZE + px) * 4;
+
+          reticles.forEach((r) => {
+            r.classList.remove('hidden');
+            r.style.left = `${nx * 100}%`;
+            r.style.top  = `${ny * 100}%`;
+          });
+
+          const cR = (bufCloudy[idx] / 255).toFixed(2);
+          const cG = (bufCloudy[idx + 1] / 255).toFixed(2);
+          const cB = (bufCloudy[idx + 2] / 255).toFixed(2);
+
+          const pR = (bufPred[idx] / 255).toFixed(2);
+          const pG = (bufPred[idx + 1] / 255).toFixed(2);
+          const pB = (bufPred[idx + 2] / 255).toFixed(2);
+
+          const gR = (bufClear[idx] / 255).toFixed(2);
+          const gG = (bufClear[idx + 1] / 255).toFixed(2);
+          const gB = (bufClear[idx + 2] / 255).toFixed(2);
+
+          document.getElementById('readoutCloudy').textContent = `ρ: ${cR}, ${cG}, ${cB}`;
+          document.getElementById('readoutPred').textContent   = `ρ: ${pR}, ${pG}, ${pB}`;
+          document.getElementById('readoutClear').textContent  = `ρ: ${gR}, ${gG}, ${gB}`;
+
+          document.getElementById('cursorCoord').textContent = `(${px}, ${py})`;
+          document.getElementById('cursorReflectance').textContent = `R:${pR} G:${pG} B:${pB}`;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+          reticles.forEach((r) => r.classList.add('hidden'));
+        });
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. VIEW MODE TOGGLE ([⚡ Split Slider] vs [⊞ Side-by-Side])
+    // -----------------------------------------------------------------------
+    const btnViewSplit      = document.getElementById('btnViewSplit');
+    const btnViewSideBySide = document.getElementById('btnViewSideBySide');
+    const sideBySideView    = document.getElementById('sideBySideView');
+    const splitSliderView   = document.getElementById('splitSliderView');
+
+    btnViewSplit.addEventListener('click', () => {
+      sideBySideView.classList.add('hidden');
+      sideBySideView.classList.remove('grid');
+      splitSliderView.classList.remove('hidden');
+      splitSliderView.classList.add('flex');
+      btnViewSplit.className      = 'px-3 py-1 rounded-[4px] text-[12px] font-medium bg-gblueTint text-gblueActive border border-[#D2E3FC] transition flex items-center gap-1.5';
+      btnViewSideBySide.className = 'px-3 py-1 rounded-[4px] text-[12px] font-medium text-slate hover:text-ink transition flex items-center gap-1.5';
+      paintSplitSliderCanvases();
+    });
+
+    btnViewSideBySide.addEventListener('click', () => {
+      splitSliderView.classList.add('hidden');
+      splitSliderView.classList.remove('flex');
+      sideBySideView.classList.remove('hidden');
+      sideBySideView.classList.add('grid');
+      btnViewSideBySide.className = 'px-3 py-1 rounded-[4px] text-[12px] font-medium bg-gblueTint text-gblueActive border border-[#D2E3FC] transition flex items-center gap-1.5';
+      btnViewSplit.className      = 'px-3 py-1 rounded-[4px] text-[12px] font-medium text-slate hover:text-ink transition flex items-center gap-1.5';
+    });
+
+    // Split Slider Pair Mode Buttons
+    const btnSplitPairCloudyPred = document.getElementById('btnSplitPairCloudyPred');
+    const btnSplitPairPredClear  = document.getElementById('btnSplitPairPredClear');
+
+    function switchSplitPair(mode) {
+      splitPairMode = mode;
+      if (mode === 'cloudy_pred') {
+        btnSplitPairCloudyPred.className = 'px-2.5 py-1 rounded-[4px] font-medium bg-gblueTint text-gblueActive';
+        btnSplitPairPredClear.className  = 'px-2.5 py-1 rounded-[4px] font-medium text-slate hover:text-ink';
+        document.getElementById('splitLeftTag').textContent  = 'Cloudy Input (512 × 512)';
+        document.getElementById('splitRightTag').textContent = 'U-Net Prediction';
+        document.getElementById('sliderRangeLeftLabel').textContent = '◀ Cloudy Input';
+        document.getElementById('sliderRangeRightLabel').textContent = 'U-Net Prediction ▶';
+      } else {
+        btnSplitPairPredClear.className  = 'px-2.5 py-1 rounded-[4px] font-medium bg-gblueTint text-gblueActive';
+        btnSplitPairCloudyPred.className = 'px-2.5 py-1 rounded-[4px] font-medium text-slate hover:text-ink';
+        document.getElementById('splitLeftTag').textContent  = 'U-Net Prediction (512 × 512)';
+        document.getElementById('splitRightTag').textContent = 'Ground Truth Clear';
+        document.getElementById('sliderRangeLeftLabel').textContent = '◀ U-Net Prediction';
+        document.getElementById('sliderRangeRightLabel').textContent = 'Ground Truth Clear ▶';
+      }
+      paintSplitSliderCanvases();
+    }
+
+    btnSplitPairCloudyPred.addEventListener('click', () => switchSplitPair('cloudy_pred'));
+    btnSplitPairPredClear.addEventListener('click', () => switchSplitPair('pred_clear'));
+
+    // -----------------------------------------------------------------------
+    // 9. SPLIT SLIDER DRAGGING & RANGE INPUT
+    // -----------------------------------------------------------------------
+    function setSplitPosition(pct) {
+      pct = Math.max(0, Math.min(100, pct));
+      document.getElementById('splitLeftClip').style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+      document.getElementById('splitHandleLine').style.left   = `${pct}%`;
+      document.getElementById('splitPctReadout').textContent  = `${Math.round(pct)}%`;
+      document.getElementById('splitRangeInput').value = pct;
     }
 
     function initSliderDrag() {
-      const box = document.getElementById("sliderBox");
+      const stage = document.getElementById('splitStage');
       let isDragging = false;
 
       function onMove(clientX) {
-        const rect = box.getBoundingClientRect();
-        let x = clientX - rect.left;
-        if (x < 0) x = 0;
-        if (x > rect.width) x = rect.width;
-        const pct = (x / rect.width) * 100;
-        updateSplit(pct);
-        document.getElementById("sliderRange").value = pct;
+        const rect = stage.getBoundingClientRect();
+        const pct = ((clientX - rect.left) / rect.width) * 100;
+        setSplitPosition(pct);
       }
 
-      box.addEventListener("mousedown", (e) => {
+      stage.addEventListener('mousedown', (e) => {
         isDragging = true;
         onMove(e.clientX);
       });
-      window.addEventListener("mousemove", (e) => {
+      window.addEventListener('mousemove', (e) => {
         if (isDragging) onMove(e.clientX);
       });
-      window.addEventListener("mouseup", () => { isDragging = false; });
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
 
-      // Touch events for mobile/tablet
-      box.addEventListener("touchstart", (e) => {
+      stage.addEventListener('touchstart', (e) => {
         if (e.touches.length > 0) {
           isDragging = true;
           onMove(e.touches[0].clientX);
         }
-      });
-      window.addEventListener("touchmove", (e) => {
+      }, { passive: true });
+      window.addEventListener('touchmove', (e) => {
         if (isDragging && e.touches.length > 0) onMove(e.touches[0].clientX);
+      }, { passive: true });
+      window.addEventListener('touchend', () => {
+        isDragging = false;
       });
-      window.addEventListener("touchend", () => { isDragging = false; });
+
+      document.getElementById('splitRangeInput').addEventListener('input', (e) => {
+        setSplitPosition(parseFloat(e.target.value));
+      });
     }
 
-    function downloadPrediction(format) {
-      if (!currentSessionId) {
-        alert("No active prediction to download.");
-        return;
-      }
-      window.location.href = `/api/ui/download/${currentSessionId}?format=${format}`;
+    // -----------------------------------------------------------------------
+    // 10. INPUT TABS & FILE UPLOAD HANDLERS
+    // -----------------------------------------------------------------------
+    function initTabs() {
+      const tabBtnPresets   = document.getElementById('tabBtnPresets');
+      const tabBtnUpload    = document.getElementById('tabBtnUpload');
+      const tabPanelPresets = document.getElementById('tabPanelPresets');
+      const tabPanelUpload  = document.getElementById('tabPanelUpload');
+
+      tabBtnPresets.addEventListener('click', () => {
+        tabPanelPresets.classList.remove('hidden');
+        tabPanelUpload.classList.add('hidden');
+        tabBtnPresets.className = 'pb-2.5 px-3 text-[13px] font-medium text-gblue border-b-2 border-gblue transition';
+        tabBtnUpload.className  = 'pb-2.5 px-3 text-[13px] font-medium text-slate hover:text-ink border-b-2 border-transparent transition';
+      });
+
+      tabBtnUpload.addEventListener('click', () => {
+        tabPanelUpload.classList.remove('hidden');
+        tabPanelPresets.classList.add('hidden');
+        tabBtnUpload.className  = 'pb-2.5 px-3 text-[13px] font-medium text-gblue border-b-2 border-gblue transition';
+        tabBtnPresets.className = 'pb-2.5 px-3 text-[13px] font-medium text-slate hover:text-ink border-b-2 border-transparent transition';
+      });
+
+      // Bind file pickers
+      bindFileInput(document.getElementById('cloudyFileInput'), true);
+      bindFileInput(document.getElementById('clearFileInput'), false);
     }
 
+    function bindFileInput(inputEl, isCloudy) {
+      inputEl.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const sizeStr = `(${(file.size / 1024).toFixed(1)} KB)`;
+        if (isCloudy) {
+          document.getElementById('cloudyFileName').textContent = file.name;
+          document.getElementById('cloudyFileSize').textContent = sizeStr;
+          document.getElementById('labelCloudyFile').textContent = file.name;
+        } else {
+          document.getElementById('clearFileName').textContent = file.name;
+          document.getElementById('clearFileSize').textContent = sizeStr;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.getElementById(isCloudy ? 'thumbCloudy' : 'thumbClear');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 64, 64);
+            ctx.drawImage(img, 0, 0, 64, 64);
+            showSnackbar(`Selected ${file.name}`);
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. AUXILIARY TOGGLES (Band Spec & Single-Band Rejection Demo)
+    // -----------------------------------------------------------------------
+    function initBandDrawer() {
+      document.getElementById('toggleBandSpecBtn').addEventListener('click', () => {
+        const drawer = document.getElementById('bandSpecDrawer');
+        const icon   = document.getElementById('toggleBandSpecIcon');
+        const label  = document.getElementById('toggleBandSpecText');
+        const isHidden = drawer.classList.toggle('hidden');
+        icon.classList.toggle('rotate-180', !isHidden);
+        label.textContent = isHidden ? 'View band comparison' : 'Hide band comparison';
+      });
+    }
+
+    function initSingleBandTest() {
+      document.getElementById('testSingleBandBtn').addEventListener('click', () => {
+        document.getElementById('singleBandAlert').classList.toggle('hidden');
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. DOWNLOAD PREDICTIONS (GeoTIFF & PNG)
+    // -----------------------------------------------------------------------
+    function initDownloadButtons() {
+      document.getElementById('btnDownloadPng').addEventListener('click', () => {
+        if (!currentSessionId) {
+          showSnackbar('No active inference prediction to download.');
+          return;
+        }
+        window.location.href = `/api/ui/download/${currentSessionId}?format=png`;
+        showSnackbar('Downloading prediction as PNG...');
+      });
+
+      document.getElementById('btnDownloadTif').addEventListener('click', () => {
+        if (!currentSessionId) {
+          showSnackbar('No active inference prediction to download.');
+          return;
+        }
+        window.location.href = `/api/ui/download/${currentSessionId}?format=geotiff`;
+        showSnackbar('Downloading prediction as GeoTIFF (.tif)...');
+      });
+    }
+
+    // -----------------------------------------------------------------------
+    // 13. UI HELPERS (Loading Spinners & Snackbar)
+    // -----------------------------------------------------------------------
     function setLoading(isLoading, type) {
-      const btn = document.getElementById(type === "Preset" ? "btnRunPreset" : "btnRunUpload");
-      const spinner = document.getElementById(type === "Preset" ? "spinnerPreset" : "spinnerUpload");
+      const isPreset = (type === 'Preset');
+      const btn = document.getElementById(isPreset ? 'btnRunPreset' : 'btnRunUpload');
+      const spinner = document.getElementById(isPreset ? 'spinnerPreset' : 'spinnerUpload');
+      const btnText = document.getElementById(isPreset ? 'runPresetBtnText' : 'runUploadBtnText');
+      const overlay = document.getElementById('inferenceLoadingOverlay');
+
       btn.disabled = isLoading;
-      spinner.style.display = isLoading ? "inline-block" : "none";
+      if (isLoading) {
+        spinner.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+        btnText.textContent = isPreset ? 'Running Cloud Removal…' : 'Running inference…';
+      } else {
+        spinner.classList.add('hidden');
+        overlay.classList.add('hidden');
+        btnText.textContent = isPreset ? 'Run Cloud Removal' : 'Upload & Run Model';
+      }
+    }
+
+    function showSnackbar(message) {
+      const bar = document.getElementById('snackbar');
+      document.getElementById('snackbarText').textContent = message;
+      bar.classList.remove('hidden');
+      bar.classList.add('flex');
+      clearTimeout(window._snackTimer);
+      window._snackTimer = setTimeout(() => {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+      }, 3500);
     }
   </script>
 </body>
-</html>
-"""
+</html>"""
 
 
 # ============================================================================
@@ -1461,8 +2039,8 @@ def setup_ui(app: FastAPI) -> None:
                 badge_title = f"Model: {Path(model_manager.checkpoint_path).name}"
 
         html_content = get_ui_html().replace(
-            '<span id="serviceBadge" class="badge badge-primary">Model: Full U-Net (42.13 dB - Best)</span>',
-            f'<span id="serviceBadge" class="badge badge-primary">{badge_title}</span>',
+            '<span id="serviceBadge">Model: Full U-Net (42.13 dB - Best)</span>',
+            f'<span id="serviceBadge">{badge_title}</span>',
         )
         return HTMLResponse(content=html_content, status_code=200)
 

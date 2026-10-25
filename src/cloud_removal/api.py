@@ -97,7 +97,7 @@ class PredictRequest(BaseModel):
     """Inference request schema.
 
     Expects a 3D nested numeric list shaped [channels, height, width] with:
-    - channels == 3 (RGB: Sentinel-2 B04, B03, B02).
+    - channels == 3 (RGB: Red, Green, Blue).
     - height and width between 16 and 512 (inclusive).
     - all values finite and normalized in [0.0, 1.0] physical surface reflectance.
     """
@@ -106,18 +106,18 @@ class PredictRequest(BaseModel):
         ...,
         description=(
             "Nested numeric array representing a single 3D satellite image patch with shape "
-            "[channels, height, width]. Expected channels=3 (RGB: Sentinel-2 B04, B03, B02). "
+            "[channels, height, width]. Expected channels=3 (RGB: Red, Green, Blue). "
             "Values must be physical surface reflectance strictly normalized in [0.0, 1.0]."
         ),
     )
 
 
 class PredictResponse(BaseModel):
-    """Inference response schema containing predicted cloud-free reflectance patch."""
+    """Inference response schema containing predicted reconstructed surface reflectance patch."""
 
     prediction: List[List[List[float]]] = Field(
         ...,
-        description="Predicted cloud-free surface reflectance patch shaped [3, height, width] bounded in [0.0, 1.0].",
+        description="Predicted reconstructed surface reflectance patch shaped [3, height, width] bounded in [0.0, 1.0].",
     )
     output_shape: List[int] = Field(
         ..., description="Predicted tensor output dimensions [channels, height, width]"

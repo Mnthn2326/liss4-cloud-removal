@@ -1,19 +1,36 @@
-# LISS4 Cloud Removal
+# Remote-Sensing Cloud Reconstruction
 
 ## Overview
-LISS4 Cloud Removal is a demonstration MLOps project for removing cloud cover from high-resolution satellite imagery sourced from Bhoonidhi / ISRO (LISS-IV sensor).
+**Remote-Sensing Cloud Reconstruction** is an engineering-first MLOps prototype for deep-learning reconstruction of surface reflectance obscured by clouds in spaceborne optical satellite observations.
 
-The primary engineering focus of this project is establishing robust MLOps practices: data versioning, reproducibility, experiment tracking, and model lineage.
+The official production baseline is trained and evaluated on the **RICE2** paired Landsat-style RGB benchmark ($512 \times 512$ tiles) using a lightweight **Compact U-Net** (1.94M parameters, compound L1 + SSIM loss, 25.12 dB test PSNR).
 
-> **Note:** This repository has completed **Phase 1: Environment Setup**, **Phase 2: Bhoonidhi / ISRO Data Feasibility Assessment** (see [`docs/data_feasibility.md`](docs/data_feasibility.md) and [`docs/data_inspection.md`](docs/data_inspection.md)), **Phase 3: DVC Data Versioning and Dataset Management** (see [`docs/data_versioning.md`](docs/data_versioning.md)), **Phase 4: Geospatial Preprocessing Pipeline** (see [`docs/preprocessing.md`](docs/preprocessing.md)), **Phase 5: Synthetic Cloud Generation and Paired Dataset Preparation** (see [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md)), **Phase 6: SEN12MS-CR Dataset Acquisition and Integration** (see [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md)), **Phase 7: U-Net Baseline Training with MLflow** (see [`docs/training_unet.md`](docs/training_unet.md)), **Phase 7.1–7.5: Compact U-Net, Shared-Stretch Rendering & Demonstration**, **Phase 7.6–7.7: LISS-IV Cross-Sensor & Synthetic Benchmark Feasibility Assessments** (see [`reports/phase7_6_liss4_feasibility.md`](reports/phase7_6_liss4_feasibility.md) and [`reports/phase7_7_benchmark_feasibility.md`](reports/phase7_7_benchmark_feasibility.md)), **Phase 8: Prototype Packaging and Final Verification**, **Phase 9: Continuous Integration with GitHub Actions**, **Phase 10: Docker + FastAPI Inference Service** (see [`docs/api.md`](docs/api.md)), and **Phase 11: Prometheus + Grafana Monitoring Stack** (see [`docs/monitoring.md`](docs/monitoring.md)).
->
-> 📖 **Project Guide Walkthroughs:** For the comprehensive technical walkthrough and defense Q&A, see [`docs/PROJECT_WALKTHROUGH.md`](docs/PROJECT_WALKTHROUGH.md). For a quick 10-minute beginner-friendly cheat sheet, see [`docs/SIMPLE_PROJECT_WALKTHROUGH.md`](docs/SIMPLE_PROJECT_WALKTHROUGH.md).
+> **Scientific Boundary & Scope Notice:**
+> - **Supported Domain:** Landsat/Sentinel-2-style 3-channel RGB surface reflectance normalized strictly in $[0.0, 1.0]$.
+> - **Terminology:** Model outputs are **reconstructed image estimates** derived from contextual spatial priors and learned reflectance distributions. Thick optical clouds cannot be physically penetrated.
+> - **ISRO LISS-IV Status:** Historical exploration of Resourcesat-2A LISS-IV (5 m GSD, Green/Red/NIR bands, missing Blue band, uncalibrated DNs) is classified as **experimental research** and is unsupported for deployed production inference in Version 1.0. See [`docs/future_work/liss4_roadmap.md`](docs/future_work/liss4_roadmap.md) for feasibility findings and the cross-sensor roadmap.
+
+---
+
+## Benchmark Performance (RICE2 Untouched Test Split, $N=148$)
+
+Evaluated on the independent, held-out test split of the RICE2 benchmark:
+
+| Metric | Cloudy Input Baseline | Compact U-Net Reconstructed | Improvement |
+| :--- | :--- | :--- | :--- |
+| **Peak Signal-to-Noise Ratio (PSNR)** | 23.33 dB | **25.12 dB** | **+1.79 dB** |
+| **Structural Similarity (SSIM)** | 0.8029 | **0.8510** | **+0.0481** |
+| **Cloud-Region MAE** | 0.1294 | **0.0604** | **-53.3% Error** |
+| **Overall Mean Absolute Error (MAE)** | 0.0650 | **0.0491** | **-24.4% Error** |
+
+---
 
 ## Objectives
-- Establish an end-to-end MLOps pipeline for satellite imagery cloud removal.
+- Establish an end-to-end, reproducible MLOps pipeline for satellite cloud reconstruction.
 - Track and version data and model artifacts using DVC.
 - Manage experiment parameters, metrics, and models using MLflow.
-- Maintain a modular, reproducible, and testable Python codebase.
+- Serve low-latency inference via containerized FastAPI with Prometheus and Grafana observability.
+- Maintain a modular, reproducible, and testable Python codebase with continuous integration.
 
 ## Technology Stack
 - **Python** (>= 3.10)
@@ -68,18 +85,31 @@ Run the setup verification test suite using Pytest:
 pytest
 ```
 
-## Preprocessing Pipeline
-Reproduce the geospatial 3-band stacking and spatial validity mask stage using DVC:
+## Official Production Benchmark: RICE2 Dataset
+
+The official benchmark for Version 1.0 is the **RICE2** paired optical cloud reconstruction benchmark (736 scenes, $512 \times 512$ RGB, with paired cloudy observations, clear references, and binary cloud masks):
+- **Train split:** 471 samples (64%)
+- **Validation split:** 117 samples (16%)
+- **Test split (Untouched):** 148 samples (20%)
+
 ```bash
-dvc repro preprocess
+# Generate deterministic RICE2 manifest with SHA-256 hashes
+python -m cloud_removal.rice2 --dataset-root data/raw/RICE2 --output data/manifests/rice2_manifest.json
+
+# Train Compact U-Net baseline on RICE2 (compound L1 + SSIM)
+python -m cloud_removal.train_rice2 --config configs/train_rice2_compact_unet.yaml
+
+# Evaluate on the untouched held-out test split
+python -m cloud_removal.evaluate_rice2 --checkpoint checkpoints/rice2/best_rice2_compact_unet.pt --manifest data/manifests/rice2_manifest.json --split test --output reports/rice2_test_metrics.json
 ```
-See [`docs/preprocessing.md`](docs/preprocessing.md) for full pipeline specifications.
 
-## Synthetic Cloud Simulation & Patch Extraction
-Reusable utilities for stochastic cloud opacity synthesis, radiative atmospheric blending, validity-based collar filtering, and geographic zero-leakage patch splitting are implemented in `src/cloud_removal/`. See [`docs/synthetic_dataset.md`](docs/synthetic_dataset.md) for specifications and clear-reference acquisition prerequisites.
+## Exploratory & Benchmark Datasets
 
-## SEN12MS-CR Paired Optical Dataset
-A reproducible 719-pair optical subset ($256 \times 256$, 13-band Sentinel-2 Level-1C/2A GeoTIFFs) from the official training split of the SEN12MS-CR benchmark is tracked with DVC under `data/raw/sen12mscr/`. See [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md) for specifications, band definitions, and PyTorch loader usage.
+### SEN12MS-CR Paired Optical Dataset
+A reproducible 719-pair optical subset ($256 \times 256$, 13-band Sentinel-2 Level-1C/2A GeoTIFFs) from the official training split of the SEN12MS-CR benchmark is tracked with DVC under `data/raw/sen12mscr/`. See [`docs/sen12mscr_dataset.md`](docs/sen12mscr_dataset.md).
+
+### Resourcesat-2A LISS-IV (Experimental)
+LISS-IV ingestion and validation tooling is retained under `src/cloud_removal/ingest_liss4.py` for exploratory research. Because LISS-IV lacks a blue band and calibrated reflectance parameters in open metadata, it is **unsupported for production inference in v1.0**. See [`docs/future_work/liss4_roadmap.md`](docs/future_work/liss4_roadmap.md).
 
 ## U-Net Baseline Training & MLflow Tracking
 A conventional 4-stage encoder-decoder U-Net (~7.76M parameters) is trained on paired Sentinel-2 RGB patches with L1 reconstruction loss, tracked via MLflow:
