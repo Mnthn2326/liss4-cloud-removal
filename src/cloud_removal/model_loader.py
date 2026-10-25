@@ -256,7 +256,11 @@ def load_model_dynamically(
             )
         try:
             model, ckpt_dict = load_model_from_checkpoint(ckpt_p, device=device)
-            model_cfg = ckpt_dict.get("model_config", model.get_config())
+            fallback_cfg: Dict[str, Any] = (
+                getattr(model, "get_config", lambda: {})() if hasattr(model, "get_config") else {}
+            )
+            raw_cfg = ckpt_dict.get("model_config")
+            model_cfg = raw_cfg if isinstance(raw_cfg, dict) else fallback_cfg
         except Exception as exc:
             raise ModelLoadError(f"Failed to load local checkpoint '{ckpt_p}': {exc}") from exc
 
@@ -276,7 +280,11 @@ def load_model_dynamically(
         local_path = download_s3_checkpoint(s3_uri, cache_dir=cache_dir)
         try:
             model, ckpt_dict = load_model_from_checkpoint(local_path, device=device)
-            model_cfg = ckpt_dict.get("model_config", model.get_config())
+            s3_fallback_cfg: Dict[str, Any] = (
+                getattr(model, "get_config", lambda: {})() if hasattr(model, "get_config") else {}
+            )
+            s3_raw_cfg = ckpt_dict.get("model_config")
+            model_cfg = s3_raw_cfg if isinstance(s3_raw_cfg, dict) else s3_fallback_cfg
         except Exception as exc:
             raise ModelLoadError(
                 f"Failed to load checkpoint downloaded from S3 '{s3_uri}' ({local_path}): {exc}"

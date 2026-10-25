@@ -180,17 +180,26 @@ def run_evaluation(
     mean_base_ssim = float(np.mean(base_ssims)) if base_ssims else 0.0
     mean_base_sam = float(np.mean(base_sams)) if base_sams else 0.0
 
+    model_any: Any = model
+    model_cfg = model_any.get_config() if hasattr(model, "get_config") else {}
+    model_type = model_cfg.get("model_type", "UNet") if isinstance(model_cfg, dict) else "UNet"
+    total_params = (
+        model_any.count_parameters()
+        if hasattr(model, "count_parameters")
+        else sum(p.numel() for p in model.parameters() if p.requires_grad)
+    )
+
     report_payload: Dict[str, Any] = {
         "evaluation_timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "model_checkpoint": str(ckpt_file),
         "checkpoint_epoch": checkpoint.get("epoch"),
         "checkpoint_val_mae": checkpoint.get("val_mae"),
         "model_architecture": {
-            "model_type": model.get_config().get("model_type", "UNet"),
-            "in_channels": model.in_channels,
-            "out_channels": model.out_channels,
-            "base_channels": model.base_channels,
-            "total_trainable_params": model.count_parameters(),
+            "model_type": model_type,
+            "in_channels": getattr(model, "in_channels", None),
+            "out_channels": getattr(model, "out_channels", None),
+            "base_channels": getattr(model, "base_channels", None),
+            "total_trainable_params": total_params,
         },
         "dataset": {
             "manifest_path": str(m_file),

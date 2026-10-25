@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union, cast
 
 os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
@@ -112,9 +112,11 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
         else "cpu" if requested_device == "auto" else requested_device
     )
     train_loader, val_loader = create_rice2_dataloaders(config)
+    train_ds = cast(RICE2Dataset, train_loader.dataset)
+    val_ds = cast(RICE2Dataset, val_loader.dataset)
     if smoke_test:
-        train_loader.dataset.samples = train_loader.dataset.samples[:8]
-        val_loader.dataset.samples = val_loader.dataset.samples[:4]
+        train_ds.samples = train_ds.samples[:8]
+        val_ds.samples = val_ds.samples[:4]
         epochs = 1
     else:
         epochs = int(training_cfg.get("epochs", 40))
@@ -174,7 +176,7 @@ def train_rice2_model(config: Dict[str, Any], smoke_test: bool = False) -> Dict[
             }
         )
         print(
-            f"Starting RICE2 training on {device} ({epochs} epochs, {len(train_loader.dataset)} train samples, {len(val_loader.dataset)} val samples)...",
+            f"Starting RICE2 training on {device} ({epochs} epochs, {len(train_ds)} train samples, {len(val_ds)} val samples)...",
             flush=True,
         )
         for epoch in range(1, epochs + 1):

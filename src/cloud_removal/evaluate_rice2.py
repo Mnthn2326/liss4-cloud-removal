@@ -6,7 +6,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -31,7 +31,7 @@ def evaluate_rice2(
     checkpoint_path: Union[str, Path],
     manifest_path: Union[str, Path] = "data/manifests/rice2_manifest.json",
     output_path: Union[str, Path] = "reports/rice2_test_metrics.json",
-    split: str = "test",
+    split: Literal["train", "val", "test", "all"] = "test",
     max_samples: Optional[int] = None,
     device_str: str = "auto",
 ) -> Dict[str, Any]:
@@ -88,9 +88,11 @@ def evaluate_rice2(
         if baseline_clear is not None:
             result["baseline_clear_mae"].append(baseline_clear)
     metrics = {key: _mean(value) for key, value in result.items()}
+    baseline_mae = metrics.get("baseline_mae")
+    pred_mae = metrics.get("mae")
     metrics["mae_reduction_pct"] = (
-        (100.0 * (metrics["baseline_mae"] - metrics["mae"]) / metrics["baseline_mae"])
-        if metrics["baseline_mae"]
+        (100.0 * (baseline_mae - pred_mae) / baseline_mae)
+        if (baseline_mae is not None and pred_mae is not None and baseline_mae > 0)
         else None
     )
     payload = {
